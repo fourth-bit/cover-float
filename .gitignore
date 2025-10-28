@@ -1,0 +1,12 @@
+*transcript*
+@_opt/
+_info
+_lib.qdb
+_lib1_2.qdb
+_lib1_2.qpg
+_lib1_2.qtl
+_temp/
+_tempmsg/
+_vmake
+*.log
+*.ucdb
