@@ -1,4 +1,5 @@
 coverfloat_worklib/
+build/
 *transcript*
 @_opt/
 _info
