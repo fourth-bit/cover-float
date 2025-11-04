@@ -38,52 +38,61 @@ AI CODE NEEDS MODIFICATION
 #define MAX_TOKEN_LEN 128
 
 
-// void reference_model( const char * op,
-//                       const char * rm,
-//                       const char * a, 
-//                       const char * b, 
-//                       const char * c, 
-//                       const char * aFmt, 
-//                       const char * bFmt, 
-//                       const char * cFmt, 
-//                             char * result,
-//                       const char * resultFmt,
-//                             char * flags 
-//                         // need intermediate results outputs for cover vectors
-//                         ) {
-    
-//     uint128_t aInt;
-//     uint128_t bInt;
-//     uint128_t cInt;
-//     uint128_t resultInt;
+// Parse a hex string into a 128-bit integer (uint128_t)
+uint128_t parse_hex_128(const char *hex) {
+    uint128_t value = 0;
+    while (*hex) {
+        char c = *hex++;
+        uint8_t digit = 0;
 
-//     // convert inputs to integers
+        if (c >= '0' && c <= '9') digit = c - '0';
+        else if (c >= 'a' && c <= 'f') digit = 10 + (c - 'a');
+        else if (c >= 'A' && c <= 'F') digit = 10 + (c - 'A');
+        else continue; // skip non-hex chars
 
-//     // nested switch statements to call softfloat functions
+        value = (value << 4) | digit;
+    }
+    return value;
+}
 
-//     // convert back to strings
+// // Print a 128-bit integer in hex
+// void print_uint128(uint128_t value) {
+//     if (value == 0) {
+//         printf("0");
+//         return;
+//     }
 
+//     char buf[40]; // enough for 128 bits in hex
+//     int i = 39;
+//     buf[i] = '\0';
+
+//     while (value > 0 && i > 0) {
+//         uint8_t digit = value & 0xF;
+//         buf[--i] = "0123456789abcdef"[digit];
+//         value >>= 4;
+//     }
+//     printf("%s", &buf[i]);
 // }
+
 
 void reference_model( const uint32_t       * op,
                       const uint8_t        * rm,
                       const uint128_t      * a, 
                       const uint128_t      * b, 
                       const uint128_t      * c, 
-                      const uint8_t        * aFmt, 
-                      const uint8_t        * bFmt, 
-                      const uint8_t        * cFmt, 
+                      const uint8_t        * operandFmt, 
+                      const uint8_t        * resultFmt,
 
                       uint128_t            * result,
-                      uint8_t              * resultFmt,
                       uint8_t              * flags ,
-
                       intermResult_t       * intermResult ) {
     
     
     // clear flags so we ger only triggered flags
-    // TODO
+    softFloat_clearFlags(0xFF);
 
+    // set rounding mode
+    softFloat_setRoundingMode(*rm);
 
     // nested switch statements to call softfloat functions
 
@@ -115,7 +124,7 @@ void reference_model( const uint32_t       * op,
             break;
         }
 
-                case OP_ADD: {
+        case OP_SUB: {
             
             switch (*aFmt) {
                 case FMT_SINGLE: {
@@ -170,30 +179,67 @@ int main(int argc, char *argv[]) {
         return EXIT_FAILURE;
     }
 
-    char line[MAX_LINE_LEN];
+    char line[TEST_VECTOR_SIZE_HEX];
     while (fgets(line, sizeof(line), fin)) {
         // Strip newline
         line[strcspn(line, "\r\n")] = '\0';
 
-        char input1[MAX_TOKEN_LEN], input2[MAX_TOKEN_LEN], output[MAX_TOKEN_LEN];
-        if (sscanf(line, "%127[^_]_%127[^_]_%127s", input1, input2, output) != 3) {
+        char     op_str[MAX_TOKEN_LEN];
+        char     rm_str[MAX_TOKEN_LEN];
+        char      a_str[MAX_TOKEN_LEN];
+        char      b_str[MAX_TOKEN_LEN];
+        char      c_str[MAX_TOKEN_LEN];
+        char  opFmt_str[MAX_TOKEN_LEN];
+        char    res_str[MAX_TOKEN_LEN];
+        char resFmt_str[MAX_TOKEN_LEN];
+        char  flags_str[MAX_TOKEN_LEN];
+
+        if (sscanf(line, "%48[^_]_%48[^_]_%48s_%48[^_]_%48[^_]_%48s_%48[^_]_%48[^_]_%48s", 
+            op_str, rm_str, a_str, b_str, c_str, opFmt_str, res_str, resFmt_str, flags_str) != 9) {
             fprintf(stderr, "Skipping malformed line: %s\n", line);
             continue;
         }
 
-        char internal_state[MAX_TOKEN_LEN];
-        char new_output[MAX_TOKEN_LEN];
+
+        // unpack test vector tokens into integers to pass to the reference model
+
+        uint32_t       op        = parse_hex_128(op_str       );
+        uint8_t        rm        = parse_hex_128(rm_str       );
+        uint128_t      a         = parse_hex_128(a_str        );
+        uint128_t      b         = parse_hex_128(b_str        );
+        uint128_t      c         = parse_hex_128(c_str        );
+        uint8_t        opFmt     = parse_hex_128(opFmt_str    );
+        uint8_t        resFmt    = parse_hex_128(resFmt_str   );
+        uint128_t      res       = parse_hex_128(res_str      );
+        uint8_t        flags     = parse_hex_128(flags_str    );
+        
+        
+        uint128_t      newRes;
+        uint8_t        newflags;
+        intermResult_t intermRes;
+
 
         // Call reference model
-        reference_model(input1, input2, internal_state, sizeof(internal_state),
-                        new_output, sizeof(new_output));
+                
+        void reference_model(&op,
+                             &rm,
+                             &a, 
+                             &b, 
+                             &c, 
+                             &opFmt, 
+                             &resFmt,
 
-        // Write new vector: input1_input2_internalstate_output
-        fprintf(fout, "%s_%s_%s_%s\n", input1, input2, internal_state, new_output);
+                             &res,
+                             &flags,
+                             &intermRes );
+
+        // Write cover vector (append intermediate result to test vector)
+        fprintf(fout, "%s_%04x_%032x_%064x%064x%064x\n", 
+                line, intermRes.sign, intermRes.exp, intermRes.sig64, intermRes.sig0, intermRes.sigExtra);
 
         // confirm softfloat output matches testvectors
-        if (strcmp(output, new_output) != 0 ||  // outputs don't match
-            strcmp(flags,  new_flags)  != 0) {  // flags don't match
+        if (strcmp(res_str,     newRes_str)  != 0 ||  // outputs don't match
+            strcmp(flags_str, newflags_str)  != 0) {  // flags don't match
             perror("Error: testvector output doesn't match expected value\nTestVector output: %s\nExpected output: %s", output, new_output);
             fclose(fin);
             fclose(fout);

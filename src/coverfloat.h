@@ -8,6 +8,13 @@
 extern "C" {
 #endif
 
+#define TEST_VECTOR_WIDTH_BITS  576
+#define COVER_VECTOR_WIDTH_BITS 804
+
+#define TEST_VECTOR_WIDTH_HEX  144
+#define COVER_VECTOR_WIDTH_HEX 201
+
+#define MAX_TOKEN_LEN 48
 
 // arbitary encoding of IBM paper operations
 // numbering scheme: bits 31:4 are major operation (pulled directly form aharoni paper)

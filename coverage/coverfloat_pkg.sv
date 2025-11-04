@@ -1,7 +1,7 @@
 
 // TODO: move to `included config file, but this is fine for now
 `define COVER_F32
-`define COVER_VECTOR_WIDTH 801
+`define COVER_VECTOR_WIDTH 804
 
 
 package coverfloat_pkg;

@@ -1,3 +1,4 @@
+coverfloat_worklib/
 *transcript*
 @_opt/
 _info
@@ -10,3 +11,4 @@ _tempmsg/
 _vmake
 *.log
 *.ucdb
+*.o
