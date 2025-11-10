@@ -58,16 +58,16 @@ extern "C" {
 
 // format encodings
 //  {(int = 1, float = 0), (unsigned int), others => format encoding}
-#define FMT_INVAL  0x11111111 /* source unused / invalid */
-#define FMT_HALF   0x00000000
-#define FMT_SINGLE 0x00000001
-#define FMT_DOUBLE 0x00000010
-#define FMT_QUAD   0x00000011
-#define FMT_BF16   0x00000100
-#define FMT_INT    0x10000001
-#define FMT_UINT   0x11000001
-#define FMT_LONG   0x10000010
-#define FMT_ULONG  0x11000010
+#define FMT_INVAL  0b11111111 /* source unused / invalid */
+#define FMT_HALF   0b00000000
+#define FMT_SINGLE 0b00000001
+#define FMT_DOUBLE 0b00000010
+#define FMT_QUAD   0b00000011
+#define FMT_BF16   0b00000100
+#define FMT_INT    0b10000001
+#define FMT_UINT   0b11000001
+#define FMT_LONG   0b10000010
+#define FMT_ULONG  0b11000010
 
 typedef struct {
     uint64_t upper;

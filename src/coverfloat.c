@@ -26,26 +26,21 @@ void softfloat_getIntermResults (intermResult_t * result) {
 
 }
 
+void softfloat_clearIntermResults () {
+
+    softfloat_intermediateResult.sign     = 0;
+    softfloat_intermediateResult.exp      = 0;
+    softfloat_intermediateResult.sig64    = 0;
+    softfloat_intermediateResult.sig0     = 0;
+    softfloat_intermediateResult.sigExtra = 0;
+
+}
+
 /*
 AI CODE NEEDS MODIFICATION
 */
 
-// Parse a hex string into a 128-bit integer (__uint128_t)
-// __uint128_t parse_hex_128(const char *hex) {
-//     __uint128_t value = 0;
-//     while (*hex) {
-//         char c = *hex++;
-//         uint8_t digit = 0;
 
-//         if (c >= '0' && c <= '9') digit = c - '0';
-//         else if (c >= 'a' && c <= 'f') digit = 10 + (c - 'a');
-//         else if (c >= 'A' && c <= 'F') digit = 10 + (c - 'A');
-//         else continue; // skip non-hex chars
-
-//         value = (value << 4) | digit;
-//     }
-//     return value;
-// }
 uint128_t parse_hex_128(const char *hex) {
     uint128_t value = {0, 0};
 
@@ -83,8 +78,11 @@ void reference_model( const uint32_t       * op,
                       intermResult_t       * intermResult ) {
     
     
-    // clear flags so we ger only triggered flags
+    // clear flags so we get only triggered flags
     softFloat_clearFlags(0xFF);
+
+    // clear intermediate result to avoid reporting intermediate results for results that were not rounded
+    softfloat_clearIntermResults(result);
 
     // set rounding mode
     softFloat_setRoundingMode(*rm);
@@ -266,10 +264,39 @@ int main(int argc, char *argv[]) {
                         &intermRes );
 
         // Write cover vector (append intermediate result to test vector)
-        fprintf(fout, "%s_%01x_%08x_%016x%016x%016x\n", 
-                line, intermRes.sign, intermRes.exp, intermRes.sig64, intermRes.sig0, intermRes.sigExtra);
+        switch (resFmt) {
 
-        // confirm softfloat output matches testvectors
+            case FMT_QUAD: {
+                fprintf(fout, "%s_%01x_%08x_%016x%016x%016x\n", 
+                        line, intermRes.sign, intermRes.exp, intermRes.sig64, intermRes.sig0, intermRes.sigExtra);
+                break;
+            }
+            case FMT_DOUBLE: {
+                fprintf(fout, "%s_%01x_%08x_%016x%016x%016x\n", 
+                        line, intermRes.sign, intermRes.exp, intermRes.sig64, intermRes.sig0, intermRes.sigExtra);
+                break;
+            }
+            case FMT_SINGLE: {
+                fprintf(fout, "%s_%01x_%08x_%08x%08x%016x%016x\n", 
+                        line, intermRes.sign, intermRes.exp, intermRes.sig64, 0x0, intermRes.sig0, intermRes.sigExtra);
+                break;
+            }
+            case FMT_HALF: {
+                fprintf(fout, "%s_%01x_%08x_%04x%012x%016x%016x\n", 
+                        line, intermRes.sign, intermRes.exp, intermRes.sig64, 0x0, intermRes.sig0, intermRes.sigExtra);
+                break;
+            }
+            case FMT_BF16: {
+                fprintf(fout, "%s_%01x_%08x_%04x%012x%016x%016x\n", 
+                        line, intermRes.sign, intermRes.exp, intermRes.sig64, 0x0, intermRes.sig0, intermRes.sigExtra);
+                break;
+            }
+        }
+
+
+        // printf("INTERM SIG IS %016x\n\n", intermRes.sig64);
+
+        confirm softfloat output matches testvectors
         if (res.upper   != newRes.upper   || res.lower   != newRes.lower ||     // outputs don't match
             flags != newFlags                                              ) {  // flags   don't match
             fprintf(stderr, "Error: testvector output doesn't match expected value\nTestVector output: %016x%016x\nExpected output: %016x%016x\nTestVector Flags: %02x\nExpected Flags: %02x\n", 
