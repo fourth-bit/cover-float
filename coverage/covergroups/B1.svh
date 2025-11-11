@@ -2,6 +2,12 @@ covergroup B1_cg (virtual coverfloat_interface CFI);
 
     option.per_instance = 0;
 
+    /************************************************************************
+
+    Operation format helper coverpoints
+
+    ************************************************************************/
+
     FP_result_ops: coverpoint CFI.op {
         type_option.weight = 0;
         // all operations that produce (arbitrary) FP results
@@ -25,6 +31,12 @@ covergroup B1_cg (virtual coverfloat_interface CFI);
         // all operations where the third operand is FP
         `include "bins_templates/FP_src3_op_bins.svh"
     }
+
+    /************************************************************************
+
+    Single precision helper coverpoints
+
+    ************************************************************************/
 
     F32_src_fmt: coverpoint CFI.operandFmt == FMT_SINGLE {
         type_option.weight = 0;
@@ -58,7 +70,168 @@ covergroup B1_cg (virtual coverfloat_interface CFI);
         `include "bins_templates/F32_basic_types_bins.svh"
     }
 
-    // main coverpoints
+
+    /************************************************************************
+
+    Double precision helper coverpoints
+
+    ************************************************************************/
+
+    F64_src_fmt: coverpoint CFI.operandFmt == FMT_DOUBLE {
+        type_option.weight = 0;
+        // double precision format for operands
+        bins f64 = {1};
+    }
+
+    F64_result_fmt: coverpoint CFI.resultFmt == FMT_DOUBLE {
+        type_option.weight = 0;
+        // double precision format for result
+        bins f64 = {1};
+    }
+
+    F64_src1_basictypes: coverpoint CFI.a[63:0] {
+        type_option.weight = 0;
+        `include "bins_templates/F64_basic_types_bins.svh"
+    }
+
+    F64_src2_basictypes: coverpoint CFI.b[63:0] {
+        type_option.weight = 0;
+        `include "bins_templates/F64_basic_types_bins.svh"
+    }
+
+    F64_src3_basictypes: coverpoint CFI.c[63:0] {
+        type_option.weight = 0;
+        `include "bins_templates/F64_basic_types_bins.svh"
+    }
+
+    F64_result_basictypes: coverpoint CFI.result[63:0] {
+        type_option.weight = 0;
+        `include "bins_templates/F64_basic_types_bins.svh"
+    }
+
+
+    /************************************************************************
+
+    Half precision helper coverpoints
+
+    ************************************************************************/
+
+    F16_src_fmt: coverpoint CFI.operandFmt == FMT_HALF {
+        type_option.weight = 0;
+        // half precision format for operands
+        bins f16 = {1};
+    }
+
+    F16_result_fmt: coverpoint CFI.resultFmt == FMT_HALF {
+        type_option.weight = 0;
+        // half precision format for result
+        bins f16 = {1};
+    }
+
+    F16_src1_basictypes: coverpoint CFI.a[15:0] {
+        type_option.weight = 0;
+        `include "bins_templates/F16_basic_types_bins.svh"
+    }
+
+    F16_src2_basictypes: coverpoint CFI.b[15:0] {
+        type_option.weight = 0;
+        `include "bins_templates/F16_basic_types_bins.svh"
+    }
+
+    F16_src3_basictypes: coverpoint CFI.c[15:0] {
+        type_option.weight = 0;
+        `include "bins_templates/F16_basic_types_bins.svh"
+    }
+
+    F16_result_basictypes: coverpoint CFI.result[15:0] {
+        type_option.weight = 0;
+        `include "bins_templates/F16_basic_types_bins.svh"
+    }
+
+
+    /************************************************************************
+
+    BFloat16 truncated single precision helper coverpoints
+
+    ************************************************************************/
+
+    BF16_src_fmt: coverpoint CFI.operandFmt == FMT_BF16 {
+        type_option.weight = 0;
+        // BF16 precision format for operands
+        bins bf16 = {1};
+    }
+
+    BF16_result_fmt: coverpoint CFI.resultFmt == FMT_BF16 {
+        type_option.weight = 0;
+        // BF16 precision format for result
+        bins bf16 = {1};
+    }
+
+    BF16_src1_basictypes: coverpoint CFI.a[15:0] {
+        type_option.weight = 0;
+        `include "bins_templates/BF16_basic_types_bins.svh"
+    }
+
+    BF16_src2_basictypes: coverpoint CFI.b[15:0] {
+        type_option.weight = 0;
+        `include "bins_templates/BF16_basic_types_bins.svh"
+    }
+
+    BF16_src3_basictypes: coverpoint CFI.c[15:0] {
+        type_option.weight = 0;
+        `include "bins_templates/BF16_basic_types_bins.svh"
+    }
+
+    BF16_result_basictypes: coverpoint CFI.result[15:0] {
+        type_option.weight = 0;
+        `include "bins_templates/BF16_basic_types_bins.svh"
+    }
+
+
+    /************************************************************************
+
+    Quad precision helper coverpoints
+
+    ************************************************************************/
+
+    F128_src_fmt: coverpoint CFI.operandFmt == FMT_QUAD {
+        type_option.weight = 0;
+        // quad precision format for operands
+        bins f128 = {1};
+    }
+
+    F128_result_fmt: coverpoint CFI.resultFmt == FMT_QUAD {
+        type_option.weight = 0;
+        // quad precision format for result
+        bins f128 = {1};
+    }
+
+    F128_src1_basictypes: coverpoint CFI.a[127:0] {
+        type_option.weight = 0;
+        `include "bins_templates/F128_basic_types_bins.svh"
+    }
+
+    F128_src2_basictypes: coverpoint CFI.b[127:0] {
+        type_option.weight = 0;
+        `include "bins_templates/F128_basic_types_bins.svh"
+    }
+
+    F128_src3_basictypes: coverpoint CFI.c[127:0] {
+        type_option.weight = 0;
+        `include "bins_templates/F128_basic_types_bins.svh"
+    }
+
+    F128_result_basictypes: coverpoint CFI.result[127:0] {
+        type_option.weight = 0;
+        `include "bins_templates/F128_basic_types_bins.svh"
+    }
+
+
+    /************************************************************************
+
+    Main coverpoints
+
+    ************************************************************************/
 
     `ifdef COVER_F32
         B1_F32_1_operands: cross FP_src1_ops,   F32_src1_basictypes,                                           F32_src_fmt;
