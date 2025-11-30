@@ -6,7 +6,7 @@ module coverfloat (); import coverfloat_pkg::*; // TODO: maybe rename...
 
     logic clk = 0;
     logic [31:0] vectornum;
-    logic [`COVER_VECTOR_WIDTH - 1:0] covervectors [10000:0];
+    logic [`COVER_VECTOR_WIDTH - 1:0] covervectors;
     logic [2:0] discard; // bits we dont car about (upper 3 bits of sign nibble in vectors)
 
     coverfloat_coverage coverage_inst;
@@ -14,12 +14,21 @@ module coverfloat (); import coverfloat_pkg::*; // TODO: maybe rename...
 
     initial begin
 
-        $readmemh("../tests/covervectors/test.txt", covervectors); // TODO: need to replace with many coverage vector files eventually...
+        // $readmemh("../tests/covervectors/test.txt", covervectors); // TODO: need to replace with many coverage vector files eventually...
+        int fd;
+        fd = $fopen("../tests/covervectors/B1_cv.txt", "r");
 
         vectornum = 0;
         
         // CFI           = new();
         coverage_inst = new(CFI);
+
+        while ($fscanf(fd, "%h", covervectors) == 1) begin
+            @(posedge clk);
+        end
+        @(negedge clk);
+        $fclose(fd);
+        $stop;
 
     end
 
@@ -29,7 +38,7 @@ module coverfloat (); import coverfloat_pkg::*; // TODO: maybe rename...
 
     always @(posedge clk) begin
         {CFI.op, CFI.rm, CFI.a, CFI.b, CFI.c, CFI.operandFmt, CFI.result, 
-         CFI.resultFmt, CFI.exceptionBits, discard[2:0], CFI.intermS, CFI.intermX, CFI.intermM} = covervectors[vectornum];
+         CFI.resultFmt, CFI.exceptionBits, discard[2:0], CFI.intermS, CFI.intermX, CFI.intermM} = covervectors;
     end
 
     always @(negedge clk) begin
@@ -40,7 +49,9 @@ module coverfloat (); import coverfloat_pkg::*; // TODO: maybe rename...
 
         vectornum = vectornum + 1;
 
-        if (covervectors[vectornum] === `COVER_VECTOR_WIDTH'bx) $stop;
+        // if (covervectors[vectornum] === `COVER_VECTOR_WIDTH'bx) begin
+        //     $stop;
+        // end
     end
 
 endmodule

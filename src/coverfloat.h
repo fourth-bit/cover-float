@@ -2,6 +2,9 @@
 #define COVERFLOAT_H_INCLUDED
 
 #include <stdint.h>
+#include "../../riscv-isa-sim/softfloat/platform.h"
+#include "../../riscv-isa-sim/softfloat/internals.h"
+#include "../../riscv-isa-sim/softfloat/specialize.h"
 #include "../../riscv-isa-sim/softfloat/softfloat.h" // TODO: yuck fix paths
 
 #ifdef __cplusplus
@@ -109,6 +112,10 @@ uint_fast8_t softFloat_getFlags ();
 void softFloat_setRoundingMode ( uint_fast8_t );
 
 void softfloat_getIntermResults ( intermResult_t * );
+
+// TODO move to own file
+float128_t f128_min(float128_t a, float128_t b);
+float128_t f128_max(float128_t a, float128_t b);
 
 
 #ifdef __cplusplus
