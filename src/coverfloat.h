@@ -40,10 +40,10 @@ extern "C" {
 #define OP_SQRT   0x60
 #define OP_REM    0x70
 #define OP_CFI    0x80
-#define OP_FCVTW  0x81 /* fp to int           */
-#define OP_FCVTWU 0x82 /* fp to uint          */
-#define OP_FCVTL  0x83 /* fp to long          */
-#define OP_FCVTLU 0x84 /* fp to ulong         */
+// #define OP_FCVTW  0x81 /* fp to int           */
+// #define OP_FCVTWU 0x82 /* fp to uint          */
+// #define OP_FCVTL  0x83 /* fp to long          */
+// #define OP_FCVTLU 0x84 /* fp to ulong         */
 #define OP_CFF    0x90
 #define OP_CIF    0xA0
 #define OP_QC     0xB0

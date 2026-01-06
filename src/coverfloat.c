@@ -95,7 +95,7 @@ uint128_t parse_hex_128(const char *hex)
 
 
 
-void reference_model( const uint32_t       * op,
+int reference_model( const uint32_t       * op,
                       const uint8_t        * rm,
                       const uint128_t      * a, 
                       const uint128_t      * b, 
@@ -826,9 +826,359 @@ void reference_model( const uint32_t       * op,
             break;
         }
 
-        /* TODO: float to int instructions */
+        case OP_CFI: {
+            switch (*operandFmt) {
+                case FMT_SINGLE: {
+                    float32_t af;
+                    // TODO: maybe sign extend...
+                    result->upper = 0;
+                    UINT128_TO_FLOAT32(af, a);
+                    switch (*resultFmt) {
+                        case FMT_INT: {
+                            result->lower = f32_to_i32(af, *rm, true);
+                            break;
+                        }
+                        case FMT_UINT: {
+                            result->lower = f32_to_ui32(af, *rm, true);
+                            break;
+                        }
+                        case FMT_LONG: {
+                            result->lower = f32_to_i64(af, *rm, true);
+                            break;
+                        }
+                        case FMT_ULONG: {
+                            result->lower = f32_to_ui64(af, *rm, true);
+                            break;
+                        }
+                        default: {
+                            fprintf(stderr, "ERROR: float to int conversion with non-int result format\n");
+                            return EXIT_FAILURE;
+                        }
+                    }
+                    // FLOAT32_TO_UINT128(result, resultf);
+                    break;
+                }
+
+                case FMT_DOUBLE: {
+                    float64_t af;
+                    result->upper = 0;
+                    UINT128_TO_FLOAT64(af, a);
+                    switch (*resultFmt) {
+                        case FMT_INT: {
+                            result->lower = f64_to_i32(af, *rm, true);
+                            break;
+                        }
+                        case FMT_UINT: {
+                            result->lower = f64_to_ui32(af, *rm, true);
+                            break;
+                        }
+                        case FMT_LONG: {
+                            result->lower = f64_to_i64(af, *rm, true);
+                            break;
+                        }
+                        case FMT_ULONG: {
+                            result->lower = f64_to_ui64(af, *rm, true);
+                            break;
+                        }
+                        default: {
+                            fprintf(stderr, "ERROR: float to int conversion with non-int result format\n");
+                            return EXIT_FAILURE;
+                        }
+                    }
+                    // FLOAT64_TO_UINT128(result, resultf);
+                    break;
+                }
+
+                case FMT_QUAD: {
+                    float128_t af;
+                    result->upper = 0;
+                    UINT128_TO_FLOAT128(af, a);
+                    switch (*resultFmt) {
+                        case FMT_INT: {
+                            result->lower = f128_to_i32(af, *rm, true);
+                            break;
+                        }
+                        case FMT_UINT: {
+                            result->lower = f128_to_ui32(af, *rm, true);
+                            break;
+                        }
+                        case FMT_LONG: {
+                            result->lower = f128_to_i64(af, *rm, true);
+                            break;
+                        }
+                        case FMT_ULONG: {
+                            result->lower = f128_to_ui64(af, *rm, true);
+                            break;
+                        }
+                        default: {
+                            fprintf(stderr, "ERROR: float to int conversion with non-int result format\n");
+                            return EXIT_FAILURE;
+                        }
+                    }
+                    // FLOAT128_TO_UINT128(result, resultf);
+                    break;
+                }
+
+                case FMT_HALF: {
+                    float16_t af;
+                    result->upper = 0;
+                    UINT128_TO_FLOAT16(af, a);
+                    switch (*resultFmt) {
+                        case FMT_INT: {
+                            result->lower = f16_to_i32(af, *rm, true);
+                            break;
+                        }
+                        case FMT_UINT: {
+                            result->lower = f16_to_ui32(af, *rm, true);
+                            break;
+                        }
+                        case FMT_LONG: {
+                            result->lower = f16_to_i64(af, *rm, true);
+                            break;
+                        }
+                        case FMT_ULONG: {
+                            result->lower = f16_to_ui64(af, *rm, true);
+                            break;
+                        }
+                        default: {
+                            fprintf(stderr, "ERROR: float to int conversion with non-int result format\n");
+                            return EXIT_FAILURE;
+                        }
+                    }
+                    // FLOAT16_TO_UINT128(result, resultf);
+                    break;
+                }
+
+                case FMT_BF16: {
+                    float16_t af;
+                    result->upper = 0;
+                    UINT128_TO_FLOAT16(af, a);
+                    switch (*resultFmt) {
+                        case FMT_INT: {
+                            result->lower = bf16_to_i32(af, *rm, true);
+                            break;
+                        }
+                        case FMT_UINT: {
+                            result->lower = bf16_to_ui32(af, *rm, true);
+                            break;
+                        }
+                        case FMT_LONG: {
+                            result->lower = f32_to_i64(bf16_to_f32(af), *rm, true);
+                            break;
+                        }
+                        case FMT_ULONG: {
+                            result->lower = f32_to_ui64(bf16_to_f32(af), *rm, true);
+                            break;
+                        }
+                        default: {
+                            fprintf(stderr, "ERROR: float to int conversion with non-int result format\n");
+                            return EXIT_FAILURE;
+                        }
+                    }
+                    // FLOAT16_TO_UINT128(result, resultf);
+                    break;
+                }
+                default: {
+                    fprintf(stderr, "ERROR: float to int conversion with non-float source format\n");
+                }
+            }
+
+            break;
+        }
 
         /* TODO: float to float instructions */
+        case OP_CFF: {
+            
+            switch (*operandFmt) {
+                case FMT_SINGLE: {
+                    float32_t af;
+                    UINT128_TO_FLOAT32(af, a);
+                    switch (*resultFmt) {
+                        case FMT_HALF: {
+                            float16_t resultf = f32_to_f16(af);
+                            FLOAT16_TO_UINT128(result, resultf);
+                            break;
+                        }
+                        case FMT_BF16: {
+                            bfloat16_t resultf = f32_to_bf16(af);
+                            FLOAT16_TO_UINT128(result, resultf);
+                            break;
+                        }
+                        case FMT_SINGLE: {
+                            fprintf(stderr, "ERROR: float to float conversion with the same operand and result format (single)\n");
+                            return EXIT_FAILURE;
+                        }
+                        case FMT_DOUBLE: {
+                            float64_t resultf = f32_to_f64(af);
+                            FLOAT64_TO_UINT128(result, resultf);
+                            break;
+                        }
+                        case FMT_QUAD: {
+                            float128_t resultf = f32_to_f128(af);
+                            FLOAT128_TO_UINT128(result, resultf);
+                            break;
+                        }
+                        default: {
+                            fprintf(stderr, "ERROR: float to float conversion with non-float result format\n");
+                            return EXIT_FAILURE;
+                        }
+                    }
+                    // FLOAT32_TO_UINT128(result, resultf);
+                    break;
+                }
+
+                case FMT_DOUBLE: {
+                    float64_t af;
+                    UINT128_TO_FLOAT64(af, a);
+                    switch (*resultFmt) {
+                        case FMT_HALF: {
+                            float16_t resultf = f64_to_f16(af);
+                            FLOAT16_TO_UINT128(result, resultf);
+                            break;
+                        }
+                        case FMT_BF16: {
+                            bfloat16_t resultf = f64_to_bf16(af);
+                            FLOAT16_TO_UINT128(result, resultf);
+                            break;
+                        }
+                        case FMT_SINGLE: {
+                            float32_t resultf = f64_to_f32(af);
+                            FLOAT32_TO_UINT128(result, resultf);
+                            break;
+                        }
+                        case FMT_DOUBLE: {
+                            fprintf(stderr, "ERROR: float to float conversion with the same operand and result format (double)\n");
+                            return EXIT_FAILURE;
+                        }
+                        case FMT_QUAD: {
+                            float128_t resultf = f64_to_f128(af);
+                            FLOAT128_TO_UINT128(result, resultf);
+                            break;
+                        }
+                        default: {
+                            fprintf(stderr, "ERROR: float to float conversion with non-float result format\n");
+                            return EXIT_FAILURE;
+                        }
+                    }
+                    // FLOAT64_TO_UINT128(result, resultf);
+                    break;
+                }
+
+                case FMT_QUAD: {
+                    float128_t af;
+                    UINT128_TO_FLOAT128(af, a);
+                    switch (*resultFmt) {
+                        case FMT_HALF: {
+                            float16_t resultf = f128_to_f16(af);
+                            FLOAT16_TO_UINT128(result, resultf);
+                            break;
+                        }
+                        case FMT_BF16: {
+                            bfloat16_t resultf = f32_to_bf16(f128_to_f32(af));
+                            FLOAT16_TO_UINT128(result, resultf);
+                            break;
+                        }
+                        case FMT_SINGLE: {
+                            float32_t resultf = f128_to_f32(af);
+                            FLOAT32_TO_UINT128(result, resultf);
+                            break;
+                        }
+                        case FMT_DOUBLE: {
+                            float64_t resultf = f128_to_f64(af);
+                            FLOAT64_TO_UINT128(result, resultf);
+                            break;
+                        }
+                        case FMT_QUAD: {
+                            fprintf(stderr, "ERROR: float to float conversion with the same operand and result format (quad)\n");
+                            return EXIT_FAILURE;
+                        }
+                        default: {
+                            fprintf(stderr, "ERROR: float to float conversion with non-float result format\n");
+                            return EXIT_FAILURE;
+                        }
+                    }
+                    // FLOAT128_TO_UINT128(result, resultf);
+                    break;
+                }
+
+                case FMT_HALF: {
+                    float16_t af;
+                    UINT128_TO_FLOAT16(af, a);
+                    switch (*resultFmt) {
+                        case FMT_HALF: {
+                            fprintf(stderr, "ERROR: float to float conversion with the same operand and result format (half)\n");
+                            return EXIT_FAILURE;
+                        }
+                        case FMT_BF16: {
+                            bfloat16_t resultf = f32_to_bf16(f16_to_f32(af));
+                            FLOAT16_TO_UINT128(result, resultf);
+                            break;
+                        }
+                        case FMT_SINGLE: {
+                            float32_t resultf = f16_to_f32(af);
+                            FLOAT32_TO_UINT128(result, resultf);
+                            break;
+                        }
+                        case FMT_DOUBLE: {
+                            float64_t resultf = f16_to_f64(af);
+                            FLOAT64_TO_UINT128(result, resultf);
+                            break;
+                        }
+                        case FMT_QUAD: {
+                            float128_t resultf = f16_to_f128(af);
+                            FLOAT128_TO_UINT128(result, resultf);
+                            break;
+                        }
+                        default: {
+                            fprintf(stderr, "ERROR: float to float conversion with non-float result format\n");
+                            return EXIT_FAILURE;
+                        }
+                    }
+                    // FLOAT16_TO_UINT128(result, resultf);
+                    break;
+                }
+
+                case FMT_BF16: {
+                    float16_t af;
+                    UINT128_TO_FLOAT16(af, a);
+                    switch (*resultFmt) {
+                        case FMT_HALF: {
+                            float16_t resultf = f32_to_f16(bf16_to_f32(af));
+                            FLOAT16_TO_UINT128(result, resultf);
+                            break;
+                        }
+                        case FMT_BF16: {
+                            fprintf(stderr, "ERROR: float to float conversion with the same operand and result format (half)\n");
+                            return EXIT_FAILURE;
+                        }
+                        case FMT_SINGLE: {
+                            float32_t resultf = bf16_to_f32(af);
+                            FLOAT32_TO_UINT128(result, resultf);
+                            break;
+                        }
+                        case FMT_DOUBLE: {
+                            float64_t resultf = f32_to_f64(bf16_to_f32(af));
+                            FLOAT64_TO_UINT128(result, resultf);
+                            break;
+                        }
+                        case FMT_QUAD: {
+                            float128_t resultf = f32_to_f128(bf16_to_f32(af));
+                            FLOAT128_TO_UINT128(result, resultf);
+                            break;
+                        }
+                        default: {
+                            fprintf(stderr, "ERROR: float to float conversion with non-float result format\n");
+                            return EXIT_FAILURE;
+                        }
+                    }
+                    // FLOAT16_TO_UINT128(result, resultf);
+                    break;
+                }
+
+            }
+
+            break;
+        }
 
         case OP_SQRT: {
             
@@ -1185,6 +1535,8 @@ void reference_model( const uint32_t       * op,
 
     *flags = softFloat_getFlags();
     softfloat_getIntermResults(intermResult);
+
+    return EXIT_SUCCESS;
 }
 
 // TODO move to own file
@@ -1290,17 +1642,19 @@ int main(int argc, char *argv[]) {
 
         // Call reference model
                 
-        reference_model(&op,
-                        &rm,
-                        &a, 
-                        &b, 
-                        &c, 
-                        &opFmt, 
-                        &resFmt,
+        int success = reference_model(&op,
+                                      &rm,
+                                      &a, 
+                                      &b, 
+                                      &c, 
+                                      &opFmt, 
+                                      &resFmt,
 
-                        &newRes,
-                        &newFlags,
-                        &intermRes );
+                                      &newRes,
+                                      &newFlags,
+                                      &intermRes );
+
+        if (success == EXIT_FAILURE) return EXIT_FAILURE;
 
         // Write cover vector (append intermediate result to test vector)
 
