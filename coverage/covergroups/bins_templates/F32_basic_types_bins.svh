@@ -22,8 +22,9 @@
         bins neg_subnorm      = {[32'h80000002:32'h807ffffe]};
         bins posinfinity      = {32'h7f800000};
         bins neginfinity      = {32'hff800000};
-        bins posQNaN          = {[32'h7fc00000:32'h7fffffff]};
-        bins posSNaN          = {[32'h7f800001:32'h7fbfffff]};
-        bins negQNaN          = {[32'hffc00000:32'hffffffff]};
-        bins negSNaN          = {[32'hff800001:32'hffbfffff]};
-        
+        `ifndef IGNORE_NANS
+            bins posQNaN          = {[32'h7fc00000:32'h7fffffff]};
+            bins posSNaN          = {[32'h7f800001:32'h7fbfffff]};
+            bins negQNaN          = {[32'hffc00000:32'hffffffff]};
+            bins negSNaN          = {[32'hff800001:32'hffbfffff]};
+        `endif
