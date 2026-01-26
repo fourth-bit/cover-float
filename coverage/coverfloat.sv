@@ -14,19 +14,23 @@ module coverfloat (); import coverfloat_pkg::*; // TODO: maybe rename...
 
     initial begin
 
+        // file handle used in SCAN_COVERVECTOR_FILES macro to iterate through lines of covervectors
         int fd;
-        fd = $fopen("../tests/covervectors/B1_cv.txt", "r");
 
-        vectornum = 0;
-        
-        // CFI           = new();
         coverage_inst = new(CFI);
 
-        while ($fscanf(fd, "%h", covervectors) == 1) begin
-            @(posedge clk);
-        end
-        @(negedge clk);
-        $fclose(fd);
+        vectornum = 0;
+
+        `SCAN_COVERVECTOR_FILES
+
+        // fd = $fopen("../tests/covervectors/B#_cv.txt", "r");
+        // while ($fscanf(fd, "%h", covervectors) == 1) begin
+        //     @(posedge clk);
+        // end
+        // @(negedge clk);
+        // $fclose(fd);
+
+
         $stop;
 
     end
