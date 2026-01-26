@@ -1,27 +1,23 @@
 import coverfloat_pkg::*;
 class coverfloat_coverage;
 
-    `include "covergroups/B1.svh"
-    /* ... */
+    `INCLUDE_CGS
 
     virtual coverfloat_interface CFI;
-    // B1_cg B1;
-    // ...
 
     // constructor (initializes covergroups)
     function new (virtual coverfloat_interface CFI);
         this.CFI = CFI;
 
-        B1_cg = new(CFI);
-        /* ... */
+        `INIT_CGS
+
     endfunction
 
     
     function void sample();
         
-        // Call sample functions (probably `include 'd)
-        B1_cg.sample();
-        // ...
+        // Call sample functions
+        `SAMPLE_CGS
 
     endfunction
 

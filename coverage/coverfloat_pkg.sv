@@ -1,16 +1,6 @@
 
-// TODO: move to `included config file, but this is fine for now
-// `define COVER_F32
-// `define COVER_F64
-// `define COVER_F16
-// `define COVER_BF16
-// `define COVER_F128
-
-// `define COVER_LONG
-
 `include "../config.svh"
-
-`define COVER_VECTOR_WIDTH 804
+`include "macros.svh"
 
 
 package coverfloat_pkg;
