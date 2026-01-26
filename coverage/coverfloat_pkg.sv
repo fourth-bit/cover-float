@@ -1,10 +1,15 @@
 
 // TODO: move to `included config file, but this is fine for now
-`define COVER_F32
-`define COVER_F64
-`define COVER_F16
-`define COVER_BF16
-`define COVER_F128
+// `define COVER_F32
+// `define COVER_F64
+// `define COVER_F16
+// `define COVER_BF16
+// `define COVER_F128
+
+// `define COVER_LONG
+
+`include "../config.svh"
+
 `define COVER_VECTOR_WIDTH 804
 
 
@@ -34,10 +39,6 @@ package coverfloat_pkg;
     const logic [31:0] OP_SQRT   = 32'h6_0;
     const logic [31:0] OP_REM    = 32'h7_0;
     const logic [31:0] OP_CFI    = 32'h8_0;
-    const logic [31:0] OP_FCVTW  = 32'h8_1; // fp to int
-    const logic [31:0] OP_FCVTWU = 32'h8_2; // fp to uint
-    const logic [31:0] OP_FCVTL  = 32'h8_3; // fp to long
-    const logic [31:0] OP_FCVTLU = 32'h8_4; // fp to ulong
     const logic [31:0] OP_CFF    = 32'h9_0;
     const logic [31:0] OP_CIF    = 32'hA_0;
     const logic [31:0] OP_QC     = 32'hB_0;
