@@ -1,0 +1,4 @@
+[submodule "submodules/spike"]
+	path = submodules/spike
+	url = https://github.com/coreyqh/riscv-isa-sim.git
+	branch = dev
