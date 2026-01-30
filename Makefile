@@ -63,6 +63,10 @@ B1:
 clean:
 	@echo "Cleaning build directory..."
 	$(RM_CMD) $(BUILD_DIR)
+	$(RM_CMD) script/__pycache__/
+	$(RM_CMD) sim/coverfloat_worklib/
+	$(RM_CMD) sim/transcript
+	$(RM_CMD) sim/coverfloat.ucdb
 
 # --- Include Dependency Files ---
 # Include auto-generated dependency files if they exist
