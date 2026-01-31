@@ -4,7 +4,7 @@ import coverfloat
 import random 
 import itertools
 
-from typing import Generator
+from typing import Generator, List, TextIO
 
 """
 From Ahronhi et al 2008:
@@ -71,7 +71,7 @@ FMT_DOUBLE = "02" # 00000010
 FMT_QUAD   = "03" # 00000011
 FMT_BF16   = "04" # 00000100
 
-def generate_checkerboards(length: int) -> Generator[str]:
+def generate_checkerboards(length: int) -> Generator[str, None, None]:
     for zeros_length in range(1, length // 2 + 1):
         for ones_length in range(1, length // 2 + 1):
             pattern = '0' * zeros_length + '1' * ones_length
@@ -79,29 +79,28 @@ def generate_checkerboards(length: int) -> Generator[str]:
             yield pattern[:length]
             yield pattern[::-1][:length]
 
-def generate_leading_and_trailing_zeros(length: int) -> Generator[str]:
+def generate_leading_and_trailing_zeros(length: int) -> Generator[str, None, None]:
     for zeros_length in range(1, length):
         pattern = '0' * zeros_length + '1' + bin(random.getrandbits(length))[2:]
         yield pattern[:length]
         yield pattern[:length][::-1]
 
-def generate_leading_and_trailing_ones(length: int) -> Generator[str]:
+def generate_leading_and_trailing_ones(length: int) -> Generator[str, None, None]:
     for ones_length in range(1, length):
         pattern = '1' * ones_length + '0' + bin(random.getrandbits(length))[2:]
         yield pattern[:length]
         yield pattern[:length][::-1]
 
-def generate_with_k_ones(k: int, length: int) -> Generator[str]:
-    combinations = list(itertools.combinations(range(length), k))
-    random.shuffle(combinations)
+def generate_with_k_ones(k: int, length: int, limit: int) -> Generator[str, None, None]:
+    for _ in range(limit):
+        pattern = random.sample(range(length), k)
+        bits = ['0'] * length
+        for i in pattern:
+            bits[i] = '1'
 
-    for combo in combinations:
-        pattern = ['0'] * length
-        for index in combo:
-            pattern[index] = '1'
-        yield ''.join(pattern)
+        yield ''.join(bits)
 
-def generate_with_long_runs(min_run_length: int, length: int) -> Generator[str]:
+def generate_with_long_runs(min_run_length: int, length: int) -> Generator[str, None, None]:
     for start in range(length - min_run_length + 1):
         # Generate a pattern with random digits
         pattern = list(bin(random.getrandbits(length))[2:].zfill(length))
@@ -116,10 +115,123 @@ def generate_with_long_runs(min_run_length: int, length: int) -> Generator[str]:
         for i in range(start, start + min_run_length):
             zeros_pattern[i] = '0'
         yield ''.join(zeros_pattern)
-    
+
+FMT_INVAL  = "FF" # 11111111
+FMT_HALF   = "00" # 00000000
+FMT_SINGLE = "01" # 00000001
+FMT_DOUBLE = "02" # 00000010
+FMT_QUAD   = "03" # 00000011
+FMT_BF16   = "04" # 00000100
+FMT_INT    = "81" # 10000001
+FMT_UINT   = "C1" # 11000001
+FMT_LONG   = "82" # 10000010
+FMT_ULONG  = "C2" # 11000010
+
+FMT_TO_NAME = {
+    FMT_INVAL  : "Invalid",
+    FMT_HALF   : "Half-Precision",
+    FMT_SINGLE : "Single-Precision",
+    FMT_DOUBLE : "Double-Precision",
+    FMT_QUAD   : "Quad-Precision",
+    FMT_BF16   : "BFloat16",
+}
+
+FMTS_TO_TEST = [
+    FMT_HALF,
+    FMT_SINGLE,
+    FMT_DOUBLE,
+    FMT_QUAD,
+    FMT_BF16,
+]
+
+MANTISSA_BITS = {
+    FMT_HALF : 10,
+    FMT_SINGLE: 23,
+    FMT_DOUBLE: 52,
+    FMT_QUAD : 112,
+    FMT_BF16 : 7
+}
+
+EXPONENT_BITS = {
+    FMT_HALF : 5,
+    FMT_SINGLE: 8,
+    FMT_DOUBLE: 11,
+    FMT_QUAD : 15,
+    FMT_BF16 : 8
+}
+
+def generate_special_significands(fmt: str) -> List[List[str]]:
+    mantissa_length = MANTISSA_BITS[fmt]
+    ans = []
+
+    # Leading zeros
+    ans.append(list(generate_leading_and_trailing_zeros(mantissa_length)))
+
+    # Leading ones
+    ans.append(list(generate_leading_and_trailing_ones(mantissa_length)))
+
+    # Small number of 1s
+    small_ones = []
+    for k in range(1, mantissa_length // 4 + 1):
+        small_ones.extend(generate_with_k_ones(k, mantissa_length, 100))
+    ans.append(small_ones)
+
+    # Small number of 0s
+    small_zeros = []
+    for k in range(1, mantissa_length // 4 + 1):
+        small_zeros.extend(generate_with_k_ones(mantissa_length - k, mantissa_length, 100))
+    ans.append(small_zeros)
+
+    # Checkerboard patterns
+    ans.append(list(generate_checkerboards(mantissa_length)))
+
+    # Long runs of 1s and 0s
+    long_runs = []
+    for run_length in range(mantissa_length // 4, mantissa_length // 2 + 1):
+        long_runs.extend(generate_with_long_runs(run_length, mantissa_length))
+    ans.append(long_runs)
+
+    return ans
+
+def generate_test_vector_fmt(op, in1, in2, fmt1, fmt2, rnd_mode="00"):
+    zero_padding = '0' * 32
+    return f"{op}_{rnd_mode}_{in1:#032x}_{in2:#032x}_{zero_padding}_{fmt1}_{zero_padding}_{fmt2}_00\n"
+
+def generate_test_vectors(special_significands: List[List[str]], fmt: str, f: TextIO) -> int:
+    total_significands = 0
+    for significand_array in special_significands:
+        total_significands += len(significand_array)
+        for significand_a in significand_array:
+            sign = '0' # Only positive
+            # The idea here is to get a biased exponent of 1
+            exponent = bin(2 ** (EXPONENT_BITS[fmt] - 1))[2:].zfill(EXPONENT_BITS[fmt])
+            a = sign + exponent + significand_a
+            a = int(a, 2)
+
+            for significands_by_type in special_significands:
+                for significand_b in random.sample(significands_by_type, 5):
+                    sign = '0' # Only positive
+                    # The idea here is to get a biased exponent of 1
+                    exponent = bin(2 ** (EXPONENT_BITS[fmt] - 1))[2:].zfill(EXPONENT_BITS[fmt])
+                    b = sign + exponent + significand_b
+                    b = int(b, 2)
+
+                    for op in OPS:
+                        test_vector = generate_test_vector_fmt(op, a, b, fmt, fmt)
+                        print(coverfloat.reference(test_vector), file=f)
+
+    return total_significands * len(special_significands) * 5 * len(OPS)
+
 def main():
-    for pattern in generate_checkerboards(16):
-        print(pattern)
+    total_tests: int = 0
+
+    with open("tests/testvectors/B9_tv.txt", "w") as f:
+        for fmt in FMTS_TO_TEST:
+            special_significands = list(generate_special_significands(fmt))
+            generated = generate_test_vectors(special_significands, fmt, f)
+            total_tests += generated
+
+    print(f"Generated {total_tests} tests for B9.")
 
 if __name__ == '__main__':
     main()
