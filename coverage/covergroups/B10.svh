@@ -56,7 +56,7 @@ covergroup B10_cg (virtual coverfloat_interface CFI);
 
     // TODO: re-work ranges with constants instead of these magic numbers
 
-    F16_exp_diff: coverpoint $signed(CFI.a[14:7] - CFI.b[14:7]) {
+    F16_exp_diff: coverpoint $signed(int'(CFI.a[14:7]) - int'(CFI.b[14:7])) {
         type_option.weight = 0;
 
         bins small_diff = {[-(F16_M_BITS + 4) : 0]};
@@ -65,7 +65,7 @@ covergroup B10_cg (virtual coverfloat_interface CFI);
 
     }
 
-    BF16_exp_diff: coverpoint $signed(CFI.a[14:7] - CFI.b[14:7]) {
+    BF16_exp_diff: coverpoint $signed(int'(CFI.a[14:7]) - int'(CFI.b[14:7])) {
         type_option.weight = 0;
 
         bins small_diff = {[-(BF16_M_BITS + 4) : 0]};
@@ -74,7 +74,7 @@ covergroup B10_cg (virtual coverfloat_interface CFI);
 
     }
 
-    F32_exp_diff: coverpoint $signed(CFI.a[30:23] - CFI.b[30:23]) {
+    F32_exp_diff: coverpoint $signed(int'(CFI.a[30:23]) - int'(CFI.b[30:23])) {
         type_option.weight = 0;
 
         bins small_diff = {[-(F32_M_BITS + 4) : 0]};
@@ -83,7 +83,7 @@ covergroup B10_cg (virtual coverfloat_interface CFI);
 
     }
 
-    F64_exp_diff: coverpoint $signed(CFI.a[62:52] - CFI.b[62:52]) {
+    F64_exp_diff: coverpoint $signed(int'(CFI.a[62:52]) - int'(CFI.b[62:52])) {
         type_option.weight = 0;
 
         bins small_diff = {[-(F64_M_BITS + 4) : 0]};
@@ -92,7 +92,7 @@ covergroup B10_cg (virtual coverfloat_interface CFI);
 
     }
 
-    F128_exp_diff: coverpoint $signed(CFI.a[126:112] - CFI.b[126:112]) {
+    F128_exp_diff: coverpoint $signed(int'(CFI.a[126:112]) - int'(CFI.b[126:112])) {
         type_option.weight = 0;
 
         bins small_diff = {[-(F128_M_BITS + 4) : 0]};
