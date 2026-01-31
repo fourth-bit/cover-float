@@ -1571,8 +1571,11 @@ float128_t f128_max(float128_t a, float128_t b)
 }
 
 
-// Kind of hacky right now, I don't like how it is repeating itself ...
-int coverfloat_runtestvector(const char* input, size_t buffer_size, char* output, size_t output_size, bool suppress_error_check) {
+int coverfloat_runtestvector(const char* input, size_t buffer_size, char** output, bool suppress_error_check) {
+    // FIXME: THIS IS REALLY BAD
+    const size_t OUTPUT_SIZE = 512;
+    *output = malloc(OUTPUT_SIZE);
+        
     char     op_str[MAX_TOKEN_LEN + 1]; // plus one for space for null terminator
     char     rm_str[MAX_TOKEN_LEN + 1];
     char      a_str[MAX_TOKEN_LEN + 1];
@@ -1586,7 +1589,9 @@ int coverfloat_runtestvector(const char* input, size_t buffer_size, char* output
 
     if (sscanf(input, "%48[^_]_%48[^_]_%48[^_]_%48[^_]_%48[^_]_%48[^_]_%48[^_]_%48[^_]_%48[^_ \t\r\n]", 
         op_str, rm_str, a_str, b_str, c_str, opFmt_str, res_str, resFmt_str, flags_str) != 9) {
-        return 2; // PLACEHOLDER FOR NOW (FIXME)
+        snprintf(*output, OUTPUT_SIZE, "Error: malformed testvector: %s\n", input);
+
+        return EXIT_FAILURE; 
     }
 
 
@@ -1623,15 +1628,16 @@ int coverfloat_runtestvector(const char* input, size_t buffer_size, char* output
 
     if (success == EXIT_FAILURE) return EXIT_FAILURE;
 
-    snprintf(output, output_size, "%08x_%02x_%016llx%016llx_%016llx%016llx_%016llx%016llx_%02x_%016llx%016llx_%02x_%02x_%01x_%08x_%016llx%016llx%016llx\n", 
+    snprintf(*output, OUTPUT_SIZE, "%08x_%02x_%016llx%016llx_%016llx%016llx_%016llx%016llx_%02x_%016llx%016llx_%02x_%02x_%01x_%08x_%016llx%016llx%016llx\n", 
                     op, rm, a.upper, a.lower, b.upper, b.lower, c.upper, c.lower, opFmt, newRes.upper, newRes.lower, resFmt, newFlags, 
                     intermRes.sign, intermRes.exp, intermRes.sig64, intermRes.sig0, intermRes.sigExtra);
 
     if (!suppress_error_check) {
         if (res.upper   != newRes.upper   || res.lower   != newRes.lower ||     // outputs don't match
             flags != newFlags                                              ) {  // flags   don't match
-            fprintf(stderr, "Error: testvector output doesn't match expected value\nTestVector output: %016llx%016llx\nExpected output:   %016llx%016llx\nTestVector Flags: %02x\nExpected Flags: %02x\nOperation: %08x\n", 
+            snprintf(output, OUTPUT_SIZE, "Error: testvector output doesn't match expected value\nTestVector output: %016llx%016llx\nExpected output:   %016llx%016llx\nTestVector Flags: %02x\nExpected Flags: %02x\nOperation: %08x\n", 
                 res.upper, res.lower, newRes.upper, newRes.lower, flags, newFlags, op);
+
             return EXIT_FAILURE;
         }
     } 

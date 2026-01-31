@@ -11,10 +11,14 @@ include_directories(src/submodules/spike/)
 
 file(GLOB SOFTFLOAT_SRC submodules/spike/softfloat/*.c)
 
-add_library(libcoverfloat STATIC src/c/coverfloat.c)
-target_link_libraries(libcoverfloat PRIVATE softfloat)
+add_library(coverfloat STATIC src/c/coverfloat.c)
+target_link_libraries(coverfloat PRIVATE softfloat)
+set_target_properties(coverfloat PROPERTIES
+    POSITION_INDEPENDENT_CODE ON
+)
+
 
 pybind11_add_module(_core MODULE src/c/main.cpp)
-target_link_libraries(_core PRIVATE libcoverfloat)
+target_link_libraries(_core PRIVATE coverfloat)
 
 install(TARGETS _core DESTINATION ${SKBUILD_PROJECT_NAME})
