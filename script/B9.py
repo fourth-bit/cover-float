@@ -58,11 +58,14 @@ OP_FSGNJ  = "00000101"
 OP_FSGNJN = "00000102"
 OP_FSGNJX = "00000103"
 
-OPS = [
+TWO_SRC_OPS = [
     OP_DIV,
     OP_REM,
-    OP_SQRT,
     OP_MUL,
+]
+
+ONE_SRC_OPS = [
+    OP_SQRT,
 ]
 
 FMT_HALF   = "00" # 00000000
@@ -199,6 +202,7 @@ def generate_test_vector_fmt(op, in1, in2, fmt1, fmt2, rnd_mode="00"):
 
 def generate_test_vectors(special_significands: List[List[str]], fmt: str, f: TextIO) -> int:
     total_significands = 0
+
     for significand_array in special_significands:
         total_significands += len(significand_array)
         for significand_a in significand_array:
@@ -208,6 +212,10 @@ def generate_test_vectors(special_significands: List[List[str]], fmt: str, f: Te
             a = sign + exponent + significand_a
             a = int(a, 2)
 
+            for op in ONE_SRC_OPS:
+                test_vector = generate_test_vector_fmt(op, a, 0, fmt, fmt)
+                print(coverfloat.reference(test_vector), file=f)
+
             for significands_by_type in special_significands:
                 for significand_b in random.sample(significands_by_type, 5):
                     sign = '0' # Only positive
@@ -216,12 +224,11 @@ def generate_test_vectors(special_significands: List[List[str]], fmt: str, f: Te
                     b = sign + exponent + significand_b
                     b = int(b, 2)
 
-                    for op in OPS:
+                    for op in TWO_SRC_OPS:
                         test_vector = generate_test_vector_fmt(op, a, b, fmt, fmt)
                         print(coverfloat.reference(test_vector), file=f)
 
-    return total_significands * len(special_significands) * 5 * len(OPS)
-
+    return total_significands * (len(special_significands) * 5 * len(TWO_SRC_OPS) + len(ONE_SRC_OPS))
 def main():
     total_tests: int = 0
 
