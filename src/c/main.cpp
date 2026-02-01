@@ -34,5 +34,5 @@ PYBIND11_MODULE(_core, m) {
 
   m.def("run_test_vector", &run_test_vector, R"pbdoc(
       Run the given vector through the coverfloat reference model.
-  )pbdoc");
+  )pbdoc", py::arg("test_vector"), py::arg("suppress_error_check") = true);
 }

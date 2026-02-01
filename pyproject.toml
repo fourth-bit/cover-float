@@ -14,7 +14,8 @@ requires-python = ">=3.9"
 dependencies = []
 
 [project.scripts]
-cover-float = "cover_float:main"
+cover-float-reference = "cover_float.cli:main"
+cover-float-testgen = "cover_float.cli:testgen"
 
 [tool.scikit-build]
 minimum-version = "build-system.requires"
