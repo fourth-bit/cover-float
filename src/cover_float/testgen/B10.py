@@ -60,8 +60,9 @@ import subprocess
 from cover_float.reference import run_and_store_test_vector
 from cover_float.common.constants import *
 
-a_mant = 200 #random values because the mantissas don't matter
-b_mant = 2000
+a_mant = 2 #random values because the mantissas don't matter
+b_mant = 2
+
 
 def decimalComponentsToHex(fmt, sign, biased_exp, mantissa):
     b_sign = f"{sign:01b}"
@@ -72,7 +73,7 @@ def decimalComponentsToHex(fmt, sign, biased_exp, mantissa):
     return h_complete
 
 
-def innerTest(test_f, cover_f):
+def innerTest(test_f, cover_f, op):
     for fmt in FLOAT_FMTS:
         p = MANTISSA_BITS[fmt] + 1
         min_exp = BIASED_EXP[fmt][0]
@@ -87,7 +88,7 @@ def innerTest(test_f, cover_f):
             complete_a = decimalComponentsToHex(fmt, 0, a_exp, a_mant)
             complete_b = decimalComponentsToHex(fmt, 0, b_exp, b_mant)
             
-            run_and_store_test_vector(f"{OP_ADD}_{ROUND_NEAR_EVEN}_{complete_a}_{complete_b}_{32*'0'}_{fmt}_{32*'0'}_{fmt}_00", test_f, cover_f)
+            run_and_store_test_vector(f"{op}_{ROUND_NEAR_EVEN}_{complete_a}_{complete_b}_{32*'0'}_{fmt}_{32*'0'}_{fmt}_00", test_f, cover_f)
 
             b_exp +=1 #Final statement, increments 1 over
              
@@ -99,12 +100,12 @@ def innerTest(test_f, cover_f):
         for i in range(0, p+4):
             complete_a = decimalComponentsToHex(fmt, 0, a_exp, a_mant)
             complete_b = decimalComponentsToHex(fmt, 0, b_exp, b_mant)
-            run_and_store_test_vector(f"{OP_ADD}_{ROUND_NEAR_EVEN}_{complete_a}_{complete_b}_{32*'0'}_{fmt}_{32*'0'}_{fmt}_00", test_f, cover_f)
+            run_and_store_test_vector(f"{op}_{ROUND_NEAR_EVEN}_{complete_a}_{complete_b}_{32*'0'}_{fmt}_{32*'0'}_{fmt}_00", test_f, cover_f)
 
             b_exp -=1 #Final statement, decrements 1 under
     
 
-def outerTest(isTestOne, test_f, cover_f):
+def outerTest(isTestOne, test_f, cover_f, op):
     for fmt in FLOAT_FMTS:
         p = MANTISSA_BITS[fmt] + 1
         min_exp = BIASED_EXP[fmt][0]
@@ -119,16 +120,17 @@ def outerTest(isTestOne, test_f, cover_f):
         complete_b = decimalComponentsToHex(fmt, 0, b_exp, b_mant)
                 
         if(isTestOne):
-            run_and_store_test_vector(f"{OP_ADD}_{ROUND_NEAR_EVEN}_{complete_a}_{complete_b}_{32*'0'}_{fmt}_{32*'0'}_{fmt}_00", test_f, cover_f)
+            run_and_store_test_vector(f"{op}_{ROUND_NEAR_EVEN}_{complete_a}_{complete_b}_{32*'0'}_{fmt}_{32*'0'}_{fmt}_00", test_f, cover_f)
         else:
-            run_and_store_test_vector(f"{OP_ADD}_{ROUND_NEAR_EVEN}_{complete_b}_{complete_a}_{32*'0'}_{fmt}_{32*'0'}_{fmt}_00", test_f, cover_f)
+            run_and_store_test_vector(f"{op}_{ROUND_NEAR_EVEN}_{complete_b}_{complete_a}_{32*'0'}_{fmt}_{32*'0'}_{fmt}_00", test_f, cover_f)
 
 
 def main():
     with open("./tests/testvectors/B10_tv.txt", "w") as test_f, open("./tests/covervectors/B10_cv.txt", "w") as cover_f:
-        outerTest(True, test_f, cover_f) #Test #1
-        innerTest(test_f, cover_f) #Test #2
-        outerTest(False, test_f, cover_f) #Test #3
+        for op in [OP_ADD, OP_SUB]:
+            outerTest(True, test_f, cover_f, op) #Test #1
+            innerTest(test_f, cover_f, op) #Test #2
+            outerTest(False, test_f, cover_f, op) #Test #3
     
     # decimalComponentsToHex(FMT_HALF, 0, 25, 976)2000, correct
     # decimalComponentsToHex(FMT_HALF, 0, 19, 256)200, correct
