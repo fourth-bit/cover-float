@@ -2,7 +2,7 @@
 
 RM_CMD ?= rm -rf
 
-.PHONY: build clean sim all-tests B1 B10
+.PHONY: build clean sim all-tests B1 B3 B10
 
 # Build target to compile the pybind11 module (if necessary) Notice that
 # we pass --managed-python, we do this so that uv (scikit-build-core)
@@ -19,6 +19,9 @@ all-tests:
 
 B1:
 	uv run --managed-python cover-float-testgen --model B1
+
+B3:
+	uv run --managed-python cover-float-testgen --model B3
 
 B10:
 	uv run --managed-python cover-float-testgen --model B10

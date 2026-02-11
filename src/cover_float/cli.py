@@ -37,9 +37,12 @@ def testgen() -> None:
 
     if args.models is None:
         tg.B1.main()
+        tg.B3.main()
         tg.B10.main()
     else:
         if "B1" in args.models:
             tg.B1.main()
+        if "B3" in args.models:
+            tg.B3.main()
         if "B10" in args.models:
             tg.B10.main()
