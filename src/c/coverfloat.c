@@ -827,6 +827,219 @@ int reference_model( const uint32_t       * op,
             break;
         }
 
+        case OP_CIF: {
+            switch (*resultFmt) {
+                case FMT_HALF: {
+                    float16_t out;
+                    switch (*operandFmt) {
+                        case FMT_INT: {
+                            uint32_t serialized_input = (uint32_t) a->lower;
+                            int32_t input;
+                            // We need to be careful not to throw out the signed part of it
+                            // a direct conversion to int32_t is UB
+                            memcpy(&input, &serialized_input, sizeof(input));
+                            out = i32_to_f16(input);
+                            break;
+                        }
+                        case FMT_UINT: {
+                            uint32_t input = (uint32_t) a->lower;
+                            out = ui32_to_f16(input);
+                            break;
+                        }
+                        case FMT_LONG: {
+                            uint64_t serialized_input = (uint64_t) a->lower;
+                            int64_t input;
+                            // We need to be careful not to throw out the signed part of it
+                            // a direct conversion to int32_t is UB
+                            memcpy(&input, &serialized_input, sizeof(input));
+                            out = i64_to_f16(input);
+                            break;
+                        }
+                        case FMT_ULONG: {
+                            uint64_t input = (uint64_t) a->lower;
+                            out = ui64_to_f16(input);
+                            break;
+                        }
+                        default: {
+                            fprintf(stderr, "ERROR: int to float conversion with non-int operand format: %x\n", *operandFmt);
+                            return EXIT_FAILURE;
+                        }
+                    }
+
+                    FLOAT16_TO_UINT128(result, out);
+                    break;
+                }
+                case FMT_BF16: {
+                    float16_t out;
+                    switch (*operandFmt) {
+                        case FMT_INT: {
+                            uint32_t serialized_input = (uint32_t) a->lower;
+                            int32_t input;
+                            // We need to be careful not to throw out the signed part of it
+                            // a direct conversion to int32_t is UB
+                            memcpy(&input, &serialized_input, sizeof(input));
+                            out = i32_to_bf16(input);
+                            break;
+                        }
+                        case FMT_UINT: {
+                            uint32_t input = (uint32_t) a->lower;
+                            out = ui32_to_bf16(input);
+                            break;
+                        }
+                        // These conversions do not exist
+
+                        // case FMT_LONG: {
+                        //     uint64_t serialized_input = (uint64_t) a->lower;
+                        //     int64_t input;
+                        //     // We need to be careful not to throw out the signed part of it
+                        //     // a direct conversion to int32_t is UB
+                        //     memcpy(&input, &serialized_input, sizeof(input));
+                        //     out = i64_to_bf16(input);
+                        //     break;
+                        // }
+                        // case FMT_ULONG: {
+                        //     uint64_t input = (uint64_t) a->lower;
+                        //     out = ui64_to_bf16(input);
+                        //     break;
+                        // }
+                        default: {
+                            fprintf(stderr, "ERROR: int to float conversion with unsupported operand format: %x\n", *operandFmt);
+                            return EXIT_FAILURE;
+                        }
+                    }
+
+                    FLOAT16_TO_UINT128(result, out);
+                    break;
+                }
+                case FMT_SINGLE: {
+                    float32_t out;
+                    switch (*operandFmt) {
+                        case FMT_INT: {
+                            uint32_t serialized_input = (uint32_t) a->lower;
+                            int32_t input;
+                            // We need to be careful not to throw out the signed part of it
+                            // a direct conversion to int32_t is UB
+                            memcpy(&input, &serialized_input, sizeof(input));
+                            out = i32_to_f32(input);
+                            break;
+                        }
+                        case FMT_UINT: {
+                            uint32_t input = (uint32_t) a->lower;
+                            out = ui32_to_f32(input);
+                            break;
+                        }
+                        case FMT_LONG: {
+                            uint64_t serialized_input = (uint64_t) a->lower;
+                            int64_t input;
+                            // We need to be careful not to throw out the signed part of it
+                            // a direct conversion to int32_t is UB
+                            memcpy(&input, &serialized_input, sizeof(input));
+                            out = i64_to_f32(input);
+                            break;
+                        }
+                        case FMT_ULONG: {
+                            uint64_t input = (uint64_t) a->lower;
+                            out = ui64_to_f32(input);
+                            break;
+                        }
+                        default: {
+                            fprintf(stderr, "ERROR: int to float conversion with non-int operand format: %x\n", *operandFmt);
+                            return EXIT_FAILURE;
+                        }
+                    }
+
+                    FLOAT32_TO_UINT128(result, out);
+                    break;
+                }
+                case FMT_DOUBLE: {
+                    float64_t out;
+                    switch (*operandFmt) {
+                        case FMT_INT: {
+                            uint32_t serialized_input = (uint32_t) a->lower;
+                            int32_t input;
+                            // We need to be careful not to throw out the signed part of it
+                            // a direct conversion to int32_t is UB
+                            memcpy(&input, &serialized_input, sizeof(input));
+                            out = i32_to_f64(input);
+                            break;
+                        }
+                        case FMT_UINT: {
+                            uint32_t input = (uint32_t) a->lower;
+                            out = ui32_to_f64(input);
+                            break;
+                        }
+                        case FMT_LONG: {
+                            uint64_t serialized_input = (uint64_t) a->lower;
+                            int64_t input;
+                            // We need to be careful not to throw out the signed part of it
+                            // a direct conversion to int32_t is UB
+                            memcpy(&input, &serialized_input, sizeof(input));
+                            out = i64_to_f64(input);
+                            break;
+                        }
+                        case FMT_ULONG: {
+                            uint64_t input = (uint64_t) a->lower;
+                            out = ui64_to_f64(input);
+                            break;
+                        }
+                        default: {
+                            fprintf(stderr, "ERROR: int to float conversion with non-int operand format: %x\n", *operandFmt);
+                            return EXIT_FAILURE;
+                        }
+                    }
+
+                    FLOAT64_TO_UINT128(result, out);
+                    break;
+                }
+                case FMT_QUAD: {
+                    float128_t out;
+                    switch (*operandFmt) {
+                        case FMT_INT: {
+                            uint32_t serialized_input = (uint32_t) a->lower;
+                            int32_t input;
+                            // We need to be careful not to throw out the signed part of it
+                            // a direct conversion to int32_t is UB
+                            memcpy(&input, &serialized_input, sizeof(input));
+                            out = i32_to_f128(input);
+                            break;
+                        }
+                        case FMT_UINT: {
+                            uint32_t input = (uint32_t) a->lower;
+                            out = ui32_to_f128(input);
+                            break;
+                        }
+                        case FMT_LONG: {
+                            uint64_t serialized_input = (uint64_t) a->lower;
+                            int64_t input;
+                            // We need to be careful not to throw out the signed part of it
+                            // a direct conversion to int32_t is UB
+                            memcpy(&input, &serialized_input, sizeof(input));
+                            out = i64_to_f128(input);
+                            break;
+                        }
+                        case FMT_ULONG: {
+                            uint64_t input = (uint64_t) a->lower;
+                            out = ui64_to_f128(input);
+                            break;
+                        }
+                        default: {
+                            fprintf(stderr, "ERROR: int to float conversion with non-int operand format: %x\n", *operandFmt);
+                            return EXIT_FAILURE;
+                        }
+                    }
+
+                    FLOAT128_TO_UINT128(result, out);
+                    break;
+                }
+                default: {
+                    fprintf(stderr, "ERROR: int to float conversion called with unsupported result format: %x\n", *resultFmt);
+                    return EXIT_FAILURE;
+                }
+            }
+
+            break;
+        }
+
         case OP_CFI: {
             switch (*operandFmt) {
                 case FMT_SINGLE: {
