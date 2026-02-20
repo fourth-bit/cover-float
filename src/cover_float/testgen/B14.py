@@ -95,11 +95,11 @@ def generate_b14_tests(test_f,cover_f,fmt):
     # This defines the sweep range [ -limit, +limit ]
     # We want to cover the full range of (ExpA + ExpB) - ExpC
     SHIFT_LIMITS = {
-        FMT_HALF   : 31,    # Max exp diff is ~30. We use 60 
-        FMT_BF16   : 256,   # Max exp diff is ~255. We use 260 
-        FMT_SINGLE : 256,   # Max exp diff is ~255. We use 300 
-        FMT_DOUBLE : 2050,  # Max exp diff is ~2047. We use 2200 
-        FMT_QUAD   : 32001   # Max exp diff is ~32000
+        FMT_HALF   : 31,    # Max exp diff is ~30. We use 31
+        FMT_BF16   : 256,   # Max exp diff is ~255. We use 256
+        FMT_SINGLE : 256,   # Max exp diff is ~255. We use 256
+        FMT_DOUBLE : 2050,  # Max exp diff is ~2047. We use 2050
+        FMT_QUAD   : 32001   # Max exp diff is ~32001
     }
     
     # Get the limit (default to 500 if format missing)
