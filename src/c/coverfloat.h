@@ -5,6 +5,7 @@
 #include "softfloat/platform.h"
 #include "softfloat/softfloat.h"
 #include "softfloat/specialize.h"
+#include <stddef.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
