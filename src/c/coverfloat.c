@@ -888,20 +888,30 @@ int reference_model( const uint32_t       * op,
                         }
                         // These conversions do not exist
 
-                        // case FMT_LONG: {
-                        //     uint64_t serialized_input = (uint64_t) a->lower;
-                        //     int64_t input;
-                        //     // We need to be careful not to throw out the signed part of it
-                        //     // a direct conversion to int32_t is UB
-                        //     memcpy(&input, &serialized_input, sizeof(input));
-                        //     out = i64_to_bf16(input);
-                        //     break;
-                        // }
-                        // case FMT_ULONG: {
-                        //     uint64_t input = (uint64_t) a->lower;
-                        //     out = ui64_to_bf16(input);
-                        //     break;
-                        // }
+                        case FMT_LONG: {
+                            uint64_t serialized_input = (uint64_t) a->lower;
+                            int64_t input;
+                            // We need to be careful not to throw out the signed part of it
+                            // a direct conversion to int64_t is UB
+                            memcpy(&input, &serialized_input, sizeof(input));
+
+                            softFloat_setRoundingMode(softfloat_round_odd);
+                            float64_t out_64 = i64_to_f64(input);
+                            softFloat_setRoundingMode(*rm);
+                            out = f64_to_bf16(out_64);
+
+                            break;
+                        }
+                        case FMT_ULONG: {
+                            uint64_t input = (uint64_t) a->lower;
+
+                            softFloat_setRoundingMode(softfloat_round_odd);
+                            float64_t out_64 = ui64_to_f64(input);
+                            softFloat_setRoundingMode(*rm);
+                            out = f64_to_bf16(out_64);
+
+                            break;
+                        }
                         default: {
                             fprintf(stderr, "ERROR: int to float conversion with unsupported operand format: %x\n", *operandFmt);
                             return EXIT_FAILURE;
@@ -932,7 +942,7 @@ int reference_model( const uint32_t       * op,
                             uint64_t serialized_input = (uint64_t) a->lower;
                             int64_t input;
                             // We need to be careful not to throw out the signed part of it
-                            // a direct conversion to int32_t is UB
+                            // a direct conversion to int64_t is UB
                             memcpy(&input, &serialized_input, sizeof(input));
                             out = i64_to_f32(input);
                             break;
@@ -972,7 +982,7 @@ int reference_model( const uint32_t       * op,
                             uint64_t serialized_input = (uint64_t) a->lower;
                             int64_t input;
                             // We need to be careful not to throw out the signed part of it
-                            // a direct conversion to int32_t is UB
+                            // a direct conversion to int64_t is UB
                             memcpy(&input, &serialized_input, sizeof(input));
                             out = i64_to_f64(input);
                             break;
@@ -1012,7 +1022,7 @@ int reference_model( const uint32_t       * op,
                             uint64_t serialized_input = (uint64_t) a->lower;
                             int64_t input;
                             // We need to be careful not to throw out the signed part of it
-                            // a direct conversion to int32_t is UB
+                            // a direct conversion to int64_t is UB
                             memcpy(&input, &serialized_input, sizeof(input));
                             out = i64_to_f128(input);
                             break;
