@@ -37,6 +37,9 @@ B12:
 	$(call parse_vectors,B12)
 
 
+B14:
+	uv run --managed-python cover-float-testgen --model B14
+
 # Clean target to remove build artifacts
 clean:
 	@echo "Cleaning build directory..."
