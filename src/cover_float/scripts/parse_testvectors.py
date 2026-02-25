@@ -56,7 +56,7 @@ ROUND_NAMES = {
     "00": "=0",  # RNE (Round to Nearest Even)
 }
 
-
+# TODO: modify the main() function to after everything goes into the python package
 def hex_to_binary(hex_str, bits):
     """Convert hex string to binary string of specified length."""
     return bin(int(hex_str, 16))[2:].zfill(bits)
@@ -114,20 +114,20 @@ def parse_fp_value(hex_val, fmt_code):
         "is_subnormal": is_subnormal,
     }
 
+    return f"{lead_bit}.{hex_str}"
+
+
 def format_mantissa(parsed):
-    """Format mantissa as hex with leading 1 for normal, 0 for subnormal."""
+    """Format mantissa as raw hex digits to match generator definitions."""
     mantissa = parsed["mantissa"]
     man_bits = parsed["man_bits"]
-    
-    # Determine the hidden bit
     lead_bit = "0" if parsed["is_subnormal"] else "1"
     
     if mantissa == 0:
         return f"{lead_bit}.0"
 
-    hex_str = f"{mantissa:X}"
     hex_digits = (man_bits + 3) // 4
-    hex_str = hex_str.zfill(hex_digits)
+    hex_str = f"{mantissa:0{hex_digits}X}"
 
     return f"{lead_bit}.{hex_str}"
 
@@ -143,8 +143,9 @@ def decode_class_mask(val):
     return "|".join(active) if active else hex(val)
 
 
-def value_to_string(parsed, fmt_code, is_class=False):
-    """Format a parsed value (float or int) into a string."""
+def value_to_string(parsed, fmt_code, is_class = False):
+    """Format a parsed value (float or int) into a string.
+    """
     spec = FMT_SPECS.get(fmt_code, {})
 
     if is_class:
@@ -176,6 +177,7 @@ def parse_test_vector(line):
     """
     Parse a single test vector line.
     Format: OP_RM_A_B_C_OPFMT_RESULT_RESFMT_FLAGS
+    Where A, B, C, RESULT are hex values of variable width based on format
     """
     line = line.strip()
     if not line or line.startswith("//"):
@@ -240,7 +242,7 @@ def parse_test_vector(line):
 
         # Force integer parsing for comparisons and class
         int_result_ops = ("class", "feq", "flt", "fle")
-        
+
         if op_name in int_result_ops:
             result_parsed = parse_int_value(result_val_formatted, {"total_bits": 32, "signed": False})
         elif res_spec and res_spec.get("type") == "float":
@@ -249,7 +251,6 @@ def parse_test_vector(line):
             result_parsed = parse_int_value(result_val_formatted, res_spec)
         else:
             result_parsed = None
-            
     except Exception as err:
         print(f"warning: failed to parse line {line!r}: {err}")
         return None
@@ -258,9 +259,9 @@ def parse_test_vector(line):
     b_str = value_to_string(b_parsed, op_fmt) if b_parsed else None
     c_str = value_to_string(c_parsed, op_fmt) if c_parsed else None
     
-    # Evaluate effective format to safely trigger int prints where forced
+    # evaluate effective format to safely trigger int prints where forced
     effective_res_fmt = "c1" if op_name in ("class", "feq", "flt", "fle") else result_fmt
-    result_str = value_to_string(result_parsed, effective_res_fmt, is_class=(op_name == "class")) if res_spec else result_val_formatted
+    result_str = value_to_string(result_parsed, effective_res_fmt, is_class = (op_name) == "class") if res_spec else result_val_formatted
 
     fmt_name = op_spec["name"]
     options = {
@@ -288,7 +289,6 @@ def parse_test_vector(line):
         "fsgnjn": "sjn",
         "fsgnjx": "sjx"
     }
-    
     op_sym = options.get(op_name, "UNK")
     flags_str = "x" if flags != "00" else ""
 
