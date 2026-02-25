@@ -1,5 +1,7 @@
 """
-Parse test vectors into human-readable floating-point format.
+Angela Zheng
+
+February 25, 2026
 
 Converts hex-encoded test vectors into readable format like:
 b32+ =0 -1.016A3DP101 +1.7CEE72P95 -> -1.7AED06P100 x
