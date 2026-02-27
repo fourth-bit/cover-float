@@ -79,41 +79,41 @@ covergroup B5_cg (virtual coverfloat_interface CFI);
     Underflow Boundary Helper Coverpoints
     ************************************************************************/
 
-    // cases i & ii 
+    // cases i & ii
     FP_subnorm: coverpoint (CFI.intermX == 0 && CFI.intermM != 0) {
         type_option.weight = 0;
 
         bins subnorm = {1};
     }
 
-    // cases iii & iv 
+    // cases iii & iv
     F32_minSubnorm_pm_3ulp: coverpoint CFI.intermM[(INTERM_M_BITS - F32_M_BITS) -: 3] iff (CFI.intermX == 0) {
         type_option.weight = 0;
-   
+
         bins minSubNorm_pm_3ulp[] = {[3'b001 : 3'b111]};
     }
 
     F64_minSubnorm_pm_3ulp: coverpoint CFI.intermM[(INTERM_M_BITS - F64_M_BITS) -: 3] iff (CFI.intermX == 0) {
         type_option.weight = 0;
-   
+
         bins minSubNorm_pm_3ulp[] = {[3'b001 : 3'b111]};
     }
 
     F128_minSubnorm_pm_3ulp: coverpoint CFI.intermM[(INTERM_M_BITS - F128_M_BITS) -: 3] iff (CFI.intermX == 0) {
         type_option.weight = 0;
-   
+
         bins minSubNorm_pm_3ulp[] = {[3'b001 : 3'b111]};
     }
 
     F16_minSubnorm_pm_3ulp: coverpoint CFI.intermM[(INTERM_M_BITS - F16_M_BITS) -: 3] iff (CFI.intermX == 0) {
         type_option.weight = 0;
-   
+
         bins minSubNorm_pm_3ulp[] = {[3'b001 : 3'b111]};
     }
 
     BF16_minSubnorm_pm_3ulp: coverpoint CFI.intermM[(INTERM_M_BITS - BF16_M_BITS) -: 3] iff (CFI.intermX == 0) {
         type_option.weight = 0;
-   
+
         bins minSubNorm_pm_3ulp[] = {[3'b001 : 3'b111]};
     }
 
