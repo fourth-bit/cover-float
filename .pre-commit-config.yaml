@@ -10,12 +10,12 @@ repos:
       - id: check-shebang-scripts-are-executable
       - id: check-symlinks
   - repo: https://github.com/astral-sh/uv-pre-commit
-    rev: 0.10.4
+    rev: 0.13.6
     hooks:
       - id: uv-lock
   - repo: https://github.com/astral-sh/ruff-pre-commit
     # Ruff version.
-    rev: v0.15.2
+    rev: v0.17.3
     hooks:
       # Run the linter.
       - id: ruff-check
@@ -31,6 +31,6 @@ repos:
         language: system
         types: [python]
   - repo: https://github.com/pre-commit/mirrors-clang-format
-    rev: v21.1.8
+    rev: v23.1.3
     hooks:
     - id: clang-format

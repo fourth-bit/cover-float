@@ -16,11 +16,13 @@
 # Created By: Ryan Wolk (rwolk@hmc.edu) on 2/26/2026
 
 import math
+import os
 import random
 from pathlib import Path
 from typing import TextIO
 
-import cover_float.common.constants as constants
+from cover_float.common import constants
+from cover_float.common.config import Config
 from cover_float.common.util import generate_float, generate_test_vector, reproducible_hash
 from cover_float.reference import run_and_store_test_vector
 from cover_float.testgen.model import register_model
@@ -74,7 +76,7 @@ class B9SignificandGenerator:
         self.sparse_positions = [*one_sparse_positions, *two_sparse_positions]
 
         # Checkerboards: List of (run_length, offset)
-        self.checkerboards = [(run_length, offset) for run_length in range(1, 3) for offset in range(0, run_length * 2)]
+        self.checkerboards = [(run_length, offset) for run_length in range(1, 3) for offset in range(run_length * 2)]
 
         # Long Runs: List of (length, positions)
         self.long_runs: list[tuple[int, int]] = []
@@ -96,7 +98,7 @@ class B9SignificandGenerator:
             interpolated = start + (end - start) * (i / max_n)
             ans.append((run_length, math.floor(interpolated)))
 
-        return sorted(list(set(ans)))
+        return sorted(set(ans))
 
     def generate_leading_and_trailing(self) -> list[str]:
         random.seed(reproducible_hash(self.seed + "leading/trailing"))
@@ -189,11 +191,12 @@ class B9SignificandGenerator:
         return leading_trailing + sparse + checkers + long_runs
 
     def write_significand_coverage_template(self, significands: list[str], initial: int, file: TextIO) -> None:
-        for i, sig in enumerate(significands, initial):
-            file.write(f"bins bin_{i:02d} = {{ 'b{sig.zfill(self.nf)} }}; \n")
+        file.writelines(
+            f"bins bin_{i:02d} = {{ 'b{sig.zfill(self.nf)} }}; \n" for i, sig in enumerate(significands, initial)
+        )
 
 
-def B9_generator(sigs: list[str], fmt: str, test_f: TextIO, cover_f: TextIO) -> None:
+def B9_generator(sigs: list[str], fmt: str, test_f: TextIO, cover_f: TextIO, config: Config) -> None:
     exp_min, exp_max = constants.BIASED_EXP[fmt]
     exp_max -= constants.BIAS[fmt]
     exp_min -= constants.BIAS[fmt]
@@ -215,26 +218,29 @@ def B9_generator(sigs: list[str], fmt: str, test_f: TextIO, cover_f: TextIO) -> 
                 float2 = generate_float(sign2, exp2, int(sig2, 2), fmt) if op not in B9_1SRC else 0
 
                 tv = generate_test_vector(op, float1, float2, 0, fmt, fmt, random.choice(constants.ROUNDING_MODES))
-                run_and_store_test_vector(tv, test_f, cover_f)
+                run_and_store_test_vector(tv, test_f, cover_f, config)
 
                 if op in B9_1SRC:
                     break  # Don't over generate tests
 
 
 @register_model("B9")
-def main(test_f: TextIO, cover_f: TextIO) -> None:
+def main(config: Config, test_f: TextIO, cover_f: TextIO) -> None:
     for fmt in constants.FLOAT_FMTS:
         generator = B9SignificandGenerator(constants.MANTISSA_BITS[fmt], fmt + "b9")
 
-        bins_path = Path(
-            "coverage",
-            "covergroups",
-            "bins_templates",
-            "generated",
-            f"B9_{constants.FMT_TO_STRING[fmt]}_special_sigs.svh",
-        )
-        bins_path.parent.mkdir(parents=True, exist_ok=True)
+        if config.no_coverage_generation:
+            bins_path = Path(os.devnull)
+        else:
+            bins_path = Path(
+                "coverage",
+                "covergroups",
+                "bins_templates",
+                "generated",
+                f"B9_{constants.FMT_TO_STRING[fmt]}_special_sigs.svh",
+            )
+            bins_path.parent.mkdir(parents=True, exist_ok=True)
 
         with bins_path.open("w") as generated_coverage:
             sigs = generator.generate(generated_coverage)
-            B9_generator(sigs, fmt, test_f, cover_f)
+            B9_generator(sigs, fmt, test_f, cover_f, config)

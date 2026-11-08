@@ -20,12 +20,12 @@ import logging.handlers
 import multiprocessing
 import threading
 import time
-from collections.abc import Generator, Iterable, Sized
+from collections.abc import Callable, Generator, Iterable, Sized
 from contextlib import contextmanager
 from multiprocessing.connection import Connection
 from queue import Queue
 from types import TracebackType
-from typing import Any, Callable, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from rich import console
 from rich.logging import RichHandler
@@ -39,21 +39,37 @@ from rich.progress import (
     TaskID,
     TextColumn,
 )
+from typing_extensions import Self
 
-STATUS_LEVEL_NUM = 25
-logging.addLevelName(STATUS_LEVEL_NUM, "STATUS")
+from cover_float.common.config import Config
+
+# Make the type checker happy
+if TYPE_CHECKING:
+    _LoggerAdapter = logging.LoggerAdapter[logging.Logger]
+else:
+    _LoggerAdapter = logging.LoggerAdapter
 
 
-class ModelLogger(logging.Logger):
+class ModelAdapter(_LoggerAdapter):
     task_id: TaskID
     msg_queue: Queue[Any]
 
-    def __init__(self, name: str) -> None:
-        super().__init__(name)
+    def __init__(self, logger: logging.Logger, task_id: TaskID, msg_queue: Queue[Any]) -> None:
+        super().__init__(logger, {})
+        self.task_id = task_id
+        self.msg_queue = msg_queue
 
     def status(self, message: str, *args: Any, **kwargs: Any) -> None:  # noqa: ANN401
-        if self.isEnabledFor(STATUS_LEVEL_NUM):
-            self._log(STATUS_LEVEL_NUM, message, args, **kwargs)
+        if self.isEnabledFor(logging.INFO):
+            self.msg_queue.put(
+                {
+                    "action": "update",
+                    "args": [self.task_id],
+                    "kwargs": {
+                        "status": message,
+                    },
+                }
+            )
 
     @contextmanager
     def progress_bar(
@@ -70,19 +86,6 @@ class ModelLogger(logging.Logger):
             yield handle
         finally:
             handle.update(total=None, completed=0, m_of_n=False)
-
-
-logging.setLoggerClass(ModelLogger)
-
-
-class ExcludeStatusFilter(logging.Filter):
-    def filter(self, record: logging.LogRecord) -> bool:
-        return record.levelno != STATUS_LEVEL_NUM
-
-
-class OnlyStatusFilter(logging.Filter):
-    def filter(self, record: logging.LogRecord) -> bool:
-        return record.levelno == 25
 
 
 T = TypeVar("T")
@@ -171,7 +174,7 @@ class AsyncLoggingHandler(logging.handlers.QueueListener):
     def handle_progress_update(self, record: dict[Any, Any]) -> None:
         try:
             action = record["action"]
-            if self.level > STATUS_LEVEL_NUM:
+            if self.level > logging.INFO:
                 if action == "add_task":
                     task_id_pipe: Connection = record["pipe_end"]
                     task_id_pipe.send(-1)
@@ -192,9 +195,9 @@ class AsyncLoggingHandler(logging.handlers.QueueListener):
             elif action == "refresh":
                 self.reporter.progress.refresh()
             else:
-                logging.info(f"Failed to Log {record}")
+                logging.getLogger(__name__).info(f"Failed to Log {record}")
         except Exception:
-            logging.exception(f"Failed to Log {record}")
+            logging.getLogger(__name__).exception(f"Failed to Log {record}")
 
     def handle(self, record: logging.LogRecord | dict[Any, Any]) -> None:
         if isinstance(record, logging.LogRecord):
@@ -219,12 +222,14 @@ class ProgressAwareLogHandler(logging.Handler):
                 message_renderable=message,
             )
             self.progress.print(renderable)
-        except Exception:
+        except RecursionError:  # Mirrors implementation of logging.Handler.emit
+            raise
+        except Exception:  # noqa: BLE001
             self.handleError(record)
 
 
 class StatusReporter:
-    def __init__(self, *, disable: bool = False) -> None:
+    def __init__(self, config: Config, *, disable: bool = False) -> None:
         self.active_status_bars: dict[str, TaskID] = {}
         self.progress = Progress(
             SpinnerColumn(),
@@ -242,9 +247,9 @@ class StatusReporter:
         # This is the actual handler that prints to console
         self.rich_handler = ProgressAwareLogHandler(self.progress)
         self.queue_listener = AsyncLoggingHandler(
-            self, self.logging_queue, logging.getLogger().level, self.rich_handler
+            self, self.logging_queue, log_level_from_config(config), self.rich_handler
         )
-        logging.getLogger().addHandler(logging.handlers.QueueHandler(self.logging_queue))
+        logging.getLogger(__name__).addHandler(logging.handlers.QueueHandler(self.logging_queue))
 
         # This keeps all of the refreshes in one thread, eliminating all race conditions
         self._refresh_thread: threading.Timer = threading.Timer(0.1, self._reset_refresh_timer)
@@ -261,7 +266,7 @@ class StatusReporter:
             self._refresh_thread.daemon = True
             self._refresh_thread.start()
 
-    def __enter__(self) -> StatusReporter:
+    def __enter__(self) -> Self:
         if not self.disable:
             self.progress.start()
 
@@ -270,7 +275,9 @@ class StatusReporter:
 
         return self
 
-    def __exit__(self, exc_type: type | None, exc_value: Exception | None, traceback: TracebackType | None) -> None:
+    def __exit__(
+        self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: TracebackType | None
+    ) -> None:
         self.exiting = True
 
         if self._refresh_thread:
@@ -302,3 +309,7 @@ class StatusReporter:
         # This can be a race condition, if there is logging still in the queue
         # so we must enqueue the destruction
         self.logging_queue.put({"action": "remove_task", "args": [model_name], "kwargs": {}})
+
+
+def log_level_from_config(config: Config) -> int:
+    return logging.ERROR if config.quiet else logging.INFO

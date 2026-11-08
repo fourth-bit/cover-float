@@ -20,12 +20,12 @@
 #   Total: 1640 / format * 5 formats = 8200 vectors.
 
 import itertools
-import logging
 import random
-from typing import TYPE_CHECKING, Optional, TextIO, cast
+from collections.abc import Generator
+from typing import TYPE_CHECKING, TextIO
 
 import cover_float.common.constants as const
-import cover_float.common.log as log
+from cover_float.common.config import Config
 from cover_float.common.util import factors_to_bit_width, reproducible_hash
 from cover_float.reference import run_and_store_test_vector
 from cover_float.testgen.model import register_model
@@ -35,8 +35,6 @@ if TYPE_CHECKING:
     def factorint(n: int) -> dict[int, int]: ...
 else:
     from sympy import factorint
-
-logger: log.ModelLogger = cast(log.ModelLogger, logging.getLogger("B4"))
 
 ZERO_PAD = "0" * 32
 
@@ -48,9 +46,9 @@ ROUND_MODES = [
     const.ROUND_NEAR_MAXMAG,
 ]
 
-# LGS configs: (mantissa_zeros, gs) covering all 7 non-zero {L,G,S} values.
+# LGS configs: (use_m1ulp, gs) covering all 7 non-zero {L,G,S} values.
 # gs encodes G and S directly: bit 1 → G, bit 0 → S.
-# mantissa_zeros whether or not the mantissa preceding it was made of all zeros or all ones
+# use_m1ulp selects A operand: True → A = MaxNorm-1ulp (L=0), False → A = MaxNorm (L=1).
 #
 #   (True,  gs=1) → LGS = 001   (True,  gs=2) → LGS = 010   (True,  gs=3) → LGS = 011
 #   (False, gs=0) → LGS = 100   (False, gs=1) → LGS = 101
@@ -198,7 +196,7 @@ def _t_k_half(k: int, sign: int, E: int, M: int, bias: int) -> str:
         return _fp_hex(sign, mb, 1, E, M)
 
 
-def _gs_b(gs: int, sign: int, E: int, M: int, bias: int, *, additional_shift: int = 0) -> str:
+def _gs_b(gs: int, sign: int, E: int, M: int, bias: int) -> str:
     """
     gs x 2^(sub_ulp_exp) where sub_ulp_exp = ulp_exp - 2.
     gs in {0,1,2,3}: bit 1 → G, bit 0 → S in the intermediate.
@@ -207,9 +205,10 @@ def _gs_b(gs: int, sign: int, E: int, M: int, bias: int, *, additional_shift: in
     if gs == 0:
         return ZERO_PAD
     sub_exp = _ulp_exp(E, M, bias) - 2
-    biased_exp = (sub_exp + 2) + bias + additional_shift
-    frac = gs
-    mantissa = frac << (M - 2)
+    b = gs.bit_length()
+    biased_exp = (b - 1 + sub_exp) + bias
+    frac = gs ^ (1 << (b - 1))
+    mantissa = frac << (M - (b - 1))
     return _fp_hex(sign, biased_exp, mantissa, E, M)
 
 
@@ -233,9 +232,10 @@ def _emit(
     fmt: str,
     test_f: TextIO,
     cover_f: TextIO,
+    config: Config,
 ) -> None:
     tv = f"{op}_{rm}_{a}_{b}_{c}_{fmt}_{ZERO_PAD}_{fmt}_00"
-    run_and_store_test_vector(tv, test_f, cover_f)
+    run_and_store_test_vector(tv, test_f, cover_f, config)
 
 
 def _emit_convert(
@@ -246,9 +246,10 @@ def _emit_convert(
     target_fmt: str,
     test_f: TextIO,
     cover_f: TextIO,
+    config: Config,
 ) -> None:
     tv = f"{op}_{rm}_{a}_{ZERO_PAD}_{ZERO_PAD}_{fmt}_{ZERO_PAD}_{target_fmt}_00"
-    run_and_store_test_vector(tv, test_f, cover_f)
+    run_and_store_test_vector(tv, test_f, cover_f, config)
 
 
 # ---------------------------------------------------------------------------
@@ -256,7 +257,7 @@ def _emit_convert(
 # ---------------------------------------------------------------------------
 
 
-def _group1a_tk(fmt: str, E: int, M: int, bias: int, test_f: TextIO, cover_f: TextIO) -> None:
+def _group1a_tk(fmt: str, E: int, M: int, bias: int, test_f: TextIO, cover_f: TextIO, config: Config) -> None:
     """
     7 k values x 8 operations x 2 signs x 5 rounding modes = 560 vectors.
 
@@ -311,14 +312,14 @@ def _group1a_tk(fmt: str, E: int, M: int, bias: int, test_f: TextIO, cover_f: Te
                 fnmsub_c = neg_k_ulp
 
             for rm in ROUND_MODES:
-                _emit(const.OP_ADD, rm, mn, add_b, ZERO_PAD, fmt, test_f, cover_f)
-                _emit(const.OP_SUB, rm, mn, sub_b, ZERO_PAD, fmt, test_f, cover_f)
-                _emit(const.OP_MUL, rm, tk2, two, ZERO_PAD, fmt, test_f, cover_f)
-                _emit(const.OP_DIV, rm, tk2, half, ZERO_PAD, fmt, test_f, cover_f)
-                _emit(const.OP_FMADD, rm, hmn, two, fmadd_c, fmt, test_f, cover_f)
-                _emit(const.OP_FMSUB, rm, hmn, two, fmsub_c, fmt, test_f, cover_f)
-                _emit(const.OP_FNMADD, rm, hmn_op, two, fnmadd_c, fmt, test_f, cover_f)
-                _emit(const.OP_FNMSUB, rm, hmn_op, two, fnmsub_c, fmt, test_f, cover_f)
+                _emit(const.OP_ADD, rm, mn, add_b, ZERO_PAD, fmt, test_f, cover_f, config)
+                _emit(const.OP_SUB, rm, mn, sub_b, ZERO_PAD, fmt, test_f, cover_f, config)
+                _emit(const.OP_MUL, rm, tk2, two, ZERO_PAD, fmt, test_f, cover_f, config)
+                _emit(const.OP_DIV, rm, tk2, half, ZERO_PAD, fmt, test_f, cover_f, config)
+                _emit(const.OP_FMADD, rm, hmn, two, fmadd_c, fmt, test_f, cover_f, config)
+                _emit(const.OP_FMSUB, rm, hmn, two, fmsub_c, fmt, test_f, cover_f, config)
+                _emit(const.OP_FNMADD, rm, hmn_op, two, fnmadd_c, fmt, test_f, cover_f, config)
+                _emit(const.OP_FNMSUB, rm, hmn_op, two, fnmsub_c, fmt, test_f, cover_f, config)
 
 
 # ---------------------------------------------------------------------------
@@ -326,13 +327,13 @@ def _group1a_tk(fmt: str, E: int, M: int, bias: int, test_f: TextIO, cover_f: Te
 # ---------------------------------------------------------------------------
 
 
-def _group1b_arithmetic(fmt: str, E: int, M: int, bias: int, test_f: TextIO, cover_f: TextIO) -> None:
+def _group1b_arithmetic(fmt: str, E: int, M: int, bias: int, test_f: TextIO, cover_f: TextIO, config: Config) -> None:
     """
     7 LGS configs x 6 operations x 2 signs x 5 rounding modes = 420 vectors.
 
-    For each config (all_zeros, gs):
-      A_lgs = MaxNorm-1ulp
-      B_lgs = gs x (2^(sub_ulp_exp) if all_zeros else 2^(sub_ulp_exp-1))
+    For each config (use_m1ulp, gs):
+      A_lgs = MaxNorm-1ulp if use_m1ulp else MaxNorm
+      B_lgs = gs x 2^(sub_ulp_exp)
 
     Positive intermediate +(A_lgs + B_lgs):
       ADD:    A = +A_lgs,  B = +B_lgs
@@ -346,18 +347,18 @@ def _group1b_arithmetic(fmt: str, E: int, M: int, bias: int, test_f: TextIO, cov
     """
     one = _one(E, M, bias)
 
-    for all_zeros, gs in _LGS_CONFIGS:
+    for use_m1ulp, gs in _LGS_CONFIGS:
         for sign in (0, 1):
             # A_lgs with the desired sign
-            a_lgs_pos = _maxnorm_m1ulp(0, E, M)
-            a_lgs_neg = _maxnorm_m1ulp(1, E, M)
-
-            if all_zeros:
-                b_lgs_pos = _gs_b(gs, 0, E, M, bias, additional_shift=1)
-                b_lgs_neg = _gs_b(gs, 1, E, M, bias, additional_shift=1)
+            if use_m1ulp:
+                a_lgs_pos = _maxnorm_m1ulp(0, E, M)
+                a_lgs_neg = _maxnorm_m1ulp(1, E, M)
             else:
-                b_lgs_pos = _gs_b(gs, 0, E, M, bias)
-                b_lgs_neg = _gs_b(gs, 1, E, M, bias)
+                a_lgs_pos = _maxnorm(0, E, M)
+                a_lgs_neg = _maxnorm(1, E, M)
+
+            b_lgs_pos = _gs_b(gs, 0, E, M, bias)
+            b_lgs_neg = _gs_b(gs, 1, E, M, bias)
 
             if sign == 0:
                 # Positive intermediate: A = +A_lgs, B/C = +B_lgs (or -B_lgs for SUB/FMSUB)
@@ -389,12 +390,12 @@ def _group1b_arithmetic(fmt: str, E: int, M: int, bias: int, test_f: TextIO, cov
                 c_fnmsub = b_lgs_neg
 
             for rm in ROUND_MODES:
-                _emit(const.OP_ADD, rm, a_add, b_add, ZERO_PAD, fmt, test_f, cover_f)
-                _emit(const.OP_SUB, rm, a_sub, b_sub, ZERO_PAD, fmt, test_f, cover_f)
-                _emit(const.OP_FMADD, rm, a_fmadd, one, c_fmadd, fmt, test_f, cover_f)
-                _emit(const.OP_FMSUB, rm, a_fmsub, one, c_fmsub, fmt, test_f, cover_f)
-                _emit(const.OP_FNMADD, rm, a_fnmadd, one, c_fnmadd, fmt, test_f, cover_f)
-                _emit(const.OP_FNMSUB, rm, a_fnmsub, one, c_fnmsub, fmt, test_f, cover_f)
+                _emit(const.OP_ADD, rm, a_add, b_add, ZERO_PAD, fmt, test_f, cover_f, config)
+                _emit(const.OP_SUB, rm, a_sub, b_sub, ZERO_PAD, fmt, test_f, cover_f, config)
+                _emit(const.OP_FMADD, rm, a_fmadd, one, c_fmadd, fmt, test_f, cover_f, config)
+                _emit(const.OP_FMSUB, rm, a_fmsub, one, c_fmsub, fmt, test_f, cover_f, config)
+                _emit(const.OP_FNMADD, rm, a_fnmadd, one, c_fnmadd, fmt, test_f, cover_f, config)
+                _emit(const.OP_FNMSUB, rm, a_fnmsub, one, c_fnmsub, fmt, test_f, cover_f, config)
 
 
 # ---------------------------------------------------------------------------
@@ -402,7 +403,45 @@ def _group1b_arithmetic(fmt: str, E: int, M: int, bias: int, test_f: TextIO, cov
 # ---------------------------------------------------------------------------
 
 
-def _group1b_mul_div(fmt: str, E: int, M: int, bias: int, test_f: TextIO, cover_f: TextIO) -> None:
+def _generate_group1b_mul_factors(
+    fmt: str, E: int, M: int, _bias: int, rm: str
+) -> Generator[tuple[str, str], None, None]:
+    random.seed(reproducible_hash(f"B4{fmt}{rm}"))
+
+    for (lsb_zero, bits), sign in itertools.product(_LGS_CONFIGS, (0, 1)):
+        if bits == 2 and lsb_zero and fmt in [const.FMT_HALF, const.FMT_BF16]:
+            # Impossible cases to get the correct factors with
+            continue
+
+        # Find two factors
+        if bits & 1 == 0:
+            f1, f2 = generate_exact_mul_group1b(fmt, lsb_zero, bits, M)
+        else:
+            f1, f2 = generate_inexact_mul_group1b(fmt, lsb_zero, bits, M)
+
+        # Find Exponents
+        min_exp, max_exp = const.UNBIASED_EXP[fmt]
+        target_exp = max_exp
+
+        exp1 = random.randint(min_exp + 1, max_exp)  # Don't include min norm so we can subtract it later
+        exp2 = target_exp - exp1
+        while exp2 < min_exp or exp2 > max_exp:
+            exp1 = random.randint(min_exp + 1, max_exp)  # Don't include min norm so we can subtract it later
+            exp2 = target_exp - exp1
+
+        if (f1 * f2).bit_length() == 2 * M + 2:
+            exp1 -= 1
+
+        sign1 = random.randint(0, 1)
+        sign2 = sign1 ^ sign
+
+        a = _fp_hex(sign1, exp1 + const.EXPONENT_BIAS[fmt], f1 & ((1 << M) - 1), E, M)
+        b = _fp_hex(sign2, exp2 + const.EXPONENT_BIAS[fmt], f2 & ((1 << M) - 1), E, M)
+
+        yield (a, b)
+
+
+def _group1b_mul_div(fmt: str, E: int, M: int, bias: int, test_f: TextIO, cover_f: TextIO, config: Config) -> None:
     """
     1 LGS config x 2 operations x 2 signs x 5 rounding modes = 20 vectors.
 
@@ -418,47 +457,16 @@ def _group1b_mul_div(fmt: str, E: int, M: int, bias: int, test_f: TextIO, cover_
     for sign in (0, 1):
         mn = _maxnorm(sign, E, M)
         for rm in ROUND_MODES:
-            _emit(const.OP_DIV, rm, mn, one, ZERO_PAD, fmt, test_f, cover_f)
+            _emit(const.OP_DIV, rm, mn, one, ZERO_PAD, fmt, test_f, cover_f, config)
 
-    nf = const.MANTISSA_BITS[fmt]
-
-    for (all_zeros, bits), sign, rm in itertools.product(_LGS_CONFIGS, (0, 1), ROUND_MODES):
-        if bits == 2 and fmt == const.FMT_BF16 and all_zeros:
-            continue  # This is an impossible case
-
-        # Find two factors
-        if bits & 1 == 0:
-            f1, f2 = generate_exact_mul_group1b(fmt, all_zeros, bits, nf)
-        else:
-            f1, f2 = generate_inexact_mul_group1b(fmt, all_zeros, bits, nf)
-
-        # Find Exponents
-        min_exp, max_exp = const.UNBIASED_EXP[fmt]
-        target_exp = max_exp + all_zeros
-
-        exp1 = random.randint(min_exp + 1, max_exp)  # Don't include min norm so we can subtract it later
-        exp2 = target_exp - exp1
-        while exp2 < min_exp or exp2 > max_exp:
-            exp1 = random.randint(min_exp + 1, max_exp)  # Don't include min norm so we can subtract it later
-            exp2 = target_exp - exp1
-
-        if (f1 * f2).bit_length() == 2 * nf + 2:
-            exp1 -= 1
-
-        sign1 = random.randint(0, 1)
-        sign2 = sign1 ^ sign
-
-        a = _fp_hex(sign1, exp1 + const.EXPONENT_BIAS[fmt], f1 & ((1 << nf) - 1), E, nf)
-        b = _fp_hex(sign2, exp2 + const.EXPONENT_BIAS[fmt], f2 & ((1 << nf) - 1), E, nf)
-
-        _emit(const.OP_MUL, rm, a, b, ZERO_PAD, fmt, test_f, cover_f)
+    for rm in ROUND_MODES:
+        for a, b in _generate_group1b_mul_factors(fmt, E, M, bias, rm):
+            _emit(const.OP_MUL, rm, a, b, ZERO_PAD, fmt, test_f, cover_f, config)
 
 
-def generate_exact_mul_group1b(fmt: str, all_zeros: bool, bits: int, nf: int) -> tuple[int, int]:
-    if all_zeros:  # noqa: SIM108
-        target = 1 << (2 * nf) | bits << nf - 2
-    else:
-        target = ((1 << (nf + 1)) - 1) << nf | bits << nf - 2
+def generate_exact_mul_group1b(fmt: str, lsb_zero: bool, bits: int, nf: int) -> tuple[int, int]:
+    lsb_one = not lsb_zero
+    target = (((1 << nf) - 1) << 1 | lsb_one) << nf | bits << nf - 2
 
     factors = factorint(target)
     f1, f2 = factors_to_bit_width(factors, target, nf + 1)
@@ -472,20 +480,18 @@ def generate_exact_mul_group1b(fmt: str, all_zeros: bool, bits: int, nf: int) ->
 
         if f1 == 0 or f2 == 0:
             raise ValueError(
-                f"Could Not Find Factors for LGS Config: {(all_zeros, bits)}, fmt: {fmt}, factors: {factors}, "
+                f"Could Not Find Factors for LGS Config: {(lsb_zero, bits)}, fmt: {fmt}, factors: {factors}, "
                 f"target: {target:b}"
             )
 
     return f1, f2
 
 
-def generate_inexact_mul_group1b(fmt: str, all_zeros: bool, bits: int, nf: int) -> tuple[int, int]:
+def generate_inexact_mul_group1b(fmt: str, lsb_zero: bool, bits: int, nf: int) -> tuple[int, int]:
     assert bits & 1, "Sticky Must Be Set to Generate Inexact Mul Results"
 
-    if all_zeros:
-        target = 1 << (2 * nf) | bits << nf - 2 | 1 << nf - 3
-    else:
-        target = ((1 << (nf + 1)) - 1) << nf | bits << nf - 2 | 1 << nf - 3
+    lsb_one = not lsb_zero
+    target = (((1 << nf) - 1) << 1 | lsb_one) << nf | bits << nf - 2
 
     # Find the two mantissas
     f1, f2 = 0, 0
@@ -508,7 +514,7 @@ def generate_inexact_mul_group1b(fmt: str, all_zeros: bool, bits: int, nf: int) 
         if bin(target)[2:].startswith(mantissa_and_guard) and sticky:
             break
     else:
-        raise ValueError(f"Unable to find Inexact Factors to Hit LGS={(all_zeros, bits)}, fmt={fmt}")
+        raise ValueError(f"Unable to find Inexact Factors to Hit LGS={(lsb_zero, bits)}, fmt={fmt}")
 
     return f1, f2
 
@@ -518,7 +524,9 @@ def generate_inexact_mul_group1b(fmt: str, all_zeros: bool, bits: int, nf: int) 
 # ---------------------------------------------------------------------------
 
 
-def _group2_clear_overflow(fmt: str, E: int, M: int, bias: int, test_f: TextIO, cover_f: TextIO) -> None:
+def _group2_clear_overflow(
+    fmt: str, E: int, M: int, bias: int, test_f: TextIO, cover_f: TextIO, config: Config
+) -> None:
     """
     8 operations x 2 signs x 5 rounding modes = 80 vectors.
 
@@ -548,21 +556,33 @@ def _group2_clear_overflow(fmt: str, E: int, M: int, bias: int, test_f: TextIO, 
         mn_op = _maxnorm(1 - sign, E, M)  # opposite-sign MaxNorm, used only for SUB
         for rm in ROUND_MODES:
             # ADD: ±MaxNorm + ±MaxNorm = ±2*MaxNorm
-            _emit(const.OP_ADD, rm, mn, mn, ZERO_PAD, fmt, test_f, cover_f)
+            _emit(const.OP_ADD, rm, mn, mn, ZERO_PAD, fmt, test_f, cover_f, config)
             # SUB: ±MaxNorm - (∓MaxNorm) = ±2*MaxNorm
-            _emit(const.OP_SUB, rm, mn, mn_op, ZERO_PAD, fmt, test_f, cover_f)
+            _emit(const.OP_SUB, rm, mn, mn_op, ZERO_PAD, fmt, test_f, cover_f, config)
             # MUL: ±MaxNorm x 2.0 = ±2*MaxNorm
-            _emit(const.OP_MUL, rm, mn, two, ZERO_PAD, fmt, test_f, cover_f)
+            _emit(const.OP_MUL, rm, mn, two, ZERO_PAD, fmt, test_f, cover_f, config)
             # DIV: ±MaxNorm / 0.5 = ±2*MaxNorm
-            _emit(const.OP_DIV, rm, mn, _half_fp(E, M, bias), ZERO_PAD, fmt, test_f, cover_f)
+            _emit(const.OP_DIV, rm, mn, _half_fp(E, M, bias), ZERO_PAD, fmt, test_f, cover_f, config)
             # FMADD: (±Mn/2 x 2) + ±Mn = ±2*Mn
-            _emit(const.OP_FMADD, rm, hmn, two, mn, fmt, test_f, cover_f)
+            _emit(const.OP_FMADD, rm, hmn, two, mn, fmt, test_f, cover_f, config)
             # FMSUB: (±Mn/2 x 2) - (∓Mn) = ±2*Mn
-            _emit(const.OP_FMSUB, rm, hmn, two, mn_op, fmt, test_f, cover_f)
+            _emit(const.OP_FMSUB, rm, hmn, two, mn_op, fmt, test_f, cover_f, config)
             # FNMADD: -(∓Mn/2 x 2) - (∓Mn) = ±Mn + ±Mn = ±2*Mn
-            _emit(const.OP_FNMADD, rm, hmn_op, two, mn_op, fmt, test_f, cover_f)
+            _emit(const.OP_FNMADD, rm, hmn_op, two, mn_op, fmt, test_f, cover_f, config)
             # FNMSUB: -(∓Mn/2 x 2) + (±Mn) = ±Mn + ±Mn = ±2*Mn
-            _emit(const.OP_FNMSUB, rm, hmn_op, two, mn, fmt, test_f, cover_f)
+            _emit(const.OP_FNMSUB, rm, hmn_op, two, mn, fmt, test_f, cover_f, config)
+
+
+def _generate_group2_mul_factors(
+    _fmt: str, E: int, M: int, bias: int, _rm: str
+) -> Generator[tuple[str, str], None, None]:
+    """Generator for the values used for group 2 multiplication tests"""
+    two = _two(E, M, bias)
+
+    for sign in (0, 1):
+        # MUL: ±MaxNorm x 2.0 = ±2*MaxNorm
+        mn = _maxnorm(sign, E, M)
+        yield (mn, two)
 
 
 # ---------------------------------------------------------------------------
@@ -570,7 +590,7 @@ def _group2_clear_overflow(fmt: str, E: int, M: int, bias: int, test_f: TextIO, 
 # ---------------------------------------------------------------------------
 
 
-def _group3_exp_sweep(fmt: str, E: int, M: int, bias: int, test_f: TextIO, cover_f: TextIO) -> None:
+def _group3_exp_sweep(fmt: str, E: int, M: int, bias: int, test_f: TextIO, cover_f: TextIO, config: Config) -> None:
     """
     7 exponents x 8 operations x 2 signs x 5 rounding modes = 560 vectors.
 
@@ -612,16 +632,16 @@ def _group3_exp_sweep(fmt: str, E: int, M: int, bias: int, test_f: TextIO, cover
                     a = a_neg if sign == 1 else a_pos  # dominant operand
                     an = a_pos if sign == 1 else a_neg  # negated dominant (for FN* ops)
 
-                    _emit(const.OP_ADD, rm, a, ZERO_PAD, ZERO_PAD, fmt, test_f, cover_f)
-                    _emit(const.OP_SUB, rm, a, ZERO_PAD, ZERO_PAD, fmt, test_f, cover_f)
-                    _emit(const.OP_MUL, rm, a, one, ZERO_PAD, fmt, test_f, cover_f)
-                    _emit(const.OP_DIV, rm, a, one, ZERO_PAD, fmt, test_f, cover_f)
-                    _emit(const.OP_FMADD, rm, a, one, ZERO_PAD, fmt, test_f, cover_f)
-                    _emit(const.OP_FMSUB, rm, a, one, ZERO_PAD, fmt, test_f, cover_f)
+                    _emit(const.OP_ADD, rm, a, ZERO_PAD, ZERO_PAD, fmt, test_f, cover_f, config)
+                    _emit(const.OP_SUB, rm, a, ZERO_PAD, ZERO_PAD, fmt, test_f, cover_f, config)
+                    _emit(const.OP_MUL, rm, a, one, ZERO_PAD, fmt, test_f, cover_f, config)
+                    _emit(const.OP_DIV, rm, a, one, ZERO_PAD, fmt, test_f, cover_f, config)
+                    _emit(const.OP_FMADD, rm, a, one, ZERO_PAD, fmt, test_f, cover_f, config)
+                    _emit(const.OP_FMSUB, rm, a, one, ZERO_PAD, fmt, test_f, cover_f, config)
                     # FNMADD: -(an x 1) - 0 = -an.  For sign=0: an=a_neg, so -an = +a_pos ✓
                     #                                 For sign=1: an=a_pos, so -an = -a_pos ✓
-                    _emit(const.OP_FNMADD, rm, an, one, ZERO_PAD, fmt, test_f, cover_f)
-                    _emit(const.OP_FNMSUB, rm, an, one, ZERO_PAD, fmt, test_f, cover_f)
+                    _emit(const.OP_FNMADD, rm, an, one, ZERO_PAD, fmt, test_f, cover_f, config)
+                    _emit(const.OP_FNMSUB, rm, an, one, ZERO_PAD, fmt, test_f, cover_f, config)
 
                 else:  # d > 0
                     scale = _pow2(d, E, M, bias)  # +2^d
@@ -639,19 +659,46 @@ def _group3_exp_sweep(fmt: str, E: int, M: int, bias: int, test_f: TextIO, cover
                     # ADD: MaxNorm + MaxNorm (reaches d=1 intermediate; structural
                     #      impossibility for d>1, covergroup excludes those bins)
                     mn_for_add = mn_neg if sign == 1 else mn
-                    _emit(const.OP_ADD, rm, mn_for_add, mn_for_add, ZERO_PAD, fmt, test_f, cover_f)
+                    _emit(const.OP_ADD, rm, mn_for_add, mn_for_add, ZERO_PAD, fmt, test_f, cover_f, config)
                     # SUB: MaxNorm - (-MaxNorm) = 2*MaxNorm
                     mn_for_sub_b = mn if sign == 1 else mn_neg
-                    _emit(const.OP_SUB, rm, mn_for_add, mn_for_sub_b, ZERO_PAD, fmt, test_f, cover_f)
+                    _emit(const.OP_SUB, rm, mn_for_add, mn_for_sub_b, ZERO_PAD, fmt, test_f, cover_f, config)
 
-                    _emit(const.OP_MUL, rm, a, scale, ZERO_PAD, fmt, test_f, cover_f)
-                    _emit(const.OP_DIV, rm, a, scale_inv, ZERO_PAD, fmt, test_f, cover_f)
-                    _emit(const.OP_FMADD, rm, a, scale, ZERO_PAD, fmt, test_f, cover_f)
-                    _emit(const.OP_FMSUB, rm, a, scale, ZERO_PAD, fmt, test_f, cover_f)
+                    _emit(const.OP_MUL, rm, a, scale, ZERO_PAD, fmt, test_f, cover_f, config)
+                    _emit(const.OP_DIV, rm, a, scale_inv, ZERO_PAD, fmt, test_f, cover_f, config)
+                    _emit(const.OP_FMADD, rm, a, scale, ZERO_PAD, fmt, test_f, cover_f, config)
+                    _emit(const.OP_FMSUB, rm, a, scale, ZERO_PAD, fmt, test_f, cover_f, config)
                     # FNMADD: -(an x 2^d) - 0.  For sign=0: an=mn_neg, -(-Mnx2^d)=+Mnx2^d ✓
                     #                             For sign=1: an=mn,    -(+Mnx2^d)=-Mnx2^d ✓
-                    _emit(const.OP_FNMADD, rm, an, scale, ZERO_PAD, fmt, test_f, cover_f)
-                    _emit(const.OP_FNMSUB, rm, an, scale, ZERO_PAD, fmt, test_f, cover_f)
+                    _emit(const.OP_FNMADD, rm, an, scale, ZERO_PAD, fmt, test_f, cover_f, config)
+                    _emit(const.OP_FNMSUB, rm, an, scale, ZERO_PAD, fmt, test_f, cover_f, config)
+
+
+def _generate_group3_mul_factors(
+    _fmt: str, E: int, M: int, bias: int, _rm: str
+) -> Generator[tuple[str, str], None, None]:
+    """Generator for the factors used in the group 3 multiplication test"""
+
+    mb = _max_biased(E)
+    one = _one(E, M, bias)
+
+    for d in range(-3, 4):
+        for sign in (0, 1):
+            if d <= 0:
+                a_pos = _at_biased_exp(0, mb + d, E, M)
+                a_neg = _at_biased_exp(1, mb + d, E, M)
+                a = a_neg if sign == 1 else a_pos  # dominant operand
+
+                yield (a, one)
+            else:  # d > 0
+                scale = _pow2(d, E, M, bias)  # +2^d
+
+                mn = _maxnorm(0, E, M)  # +MaxNorm
+                mn_neg = _maxnorm(1, E, M)  # -MaxNorm
+
+                # Dominant: +MaxNorm for sign=0, -MaxNorm for sign=1
+                a = mn_neg if sign == 1 else mn
+                yield (a, scale)
 
 
 # ---------------------------------------------------------------------------
@@ -659,42 +706,15 @@ def _group3_exp_sweep(fmt: str, E: int, M: int, bias: int, test_f: TextIO, cover
 # ---------------------------------------------------------------------------
 
 
-def get_mul_inputs(fmt: str, E: int, M: int, bias: int, sign: int, k: Optional[int] = None) -> tuple[str, str]:
-    """Return the (A, B) hex operands used in B4 MUL test vectors.
-
-    Group 1A - T_k integer-ULP offset tests (pass k in {-3..+3}):
-      A = ±T_k/2  (``_t_k_half``),  B = +2.0
-      A x B = ±T_k  in infinite precision.
-
-    Group 1B - LGS=100 supplement (pass k=None):
-      A = ±MaxNorm,  B = +1.0
-      A x B = ±MaxNorm exactly  (LGS=100, no rounding bits).
-
-    Parameters
-    ----------
-    fmt:  format string, e.g. ``'fp32'``
-    E:    exponent bit width
-    M:    mantissa bit width
-    bias: exponent bias
-    sign: 0 for positive intermediate, 1 for negative
-    k:    ULP offset for Group 1A; ``None`` selects the Group 1B LGS case
-
-    Returns
-    -------
-    (a_hex, b_hex): two 32-char zero-padded hex strings, matching the operands
-                    emitted by ``_group1a_tk`` / ``_group1b_mul_div``.
-
-    example:
+def get_mul_inputs(fmt: str, rm: str) -> Generator[tuple[str, str], None, None]:
     E, M, bias = _fmt_params(fmt)
-    a_hex, b_hex = get_mul_inputs(fmt, E, M, bias, sign=0, k=2)   # Group 1A
-    a_hex, b_hex = get_mul_inputs(fmt, E, M, bias, sign=1, k=None) # Group 1B LGS
-    """
-    if k is not None:
-        return _t_k_half(k, sign, E, M, bias), _two(E, M, bias)
-    return _maxnorm(sign, E, M), _one(E, M, bias)
+    random.seed(reproducible_hash("B4{fmt}{rm}"))
+    yield from _generate_group1b_mul_factors(fmt, E, M, bias, rm)
+    yield from _generate_group2_mul_factors(fmt, E, M, bias, rm)
+    yield from _generate_group3_mul_factors(fmt, E, M, bias, rm)
 
 
-def _group1_converts(fmt: str, E: int, M: int, bias: int, test_f: TextIO, cover_f: TextIO) -> None:
+def _group1_converts(fmt: str, E: int, M: int, bias: int, test_f: TextIO, cover_f: TextIO, config: Config) -> None:
     # Generate CFF Tests between MaxNorm - 3ulp and MaxNorm + 3ulp
 
     for target in const.FLOAT_FMTS:
@@ -704,29 +724,26 @@ def _group1_converts(fmt: str, E: int, M: int, bias: int, test_f: TextIO, cover_
             # Then the conversion is widening
             continue
 
-        for sign, offset, rm in itertools.product((0, 1), range(-3, 4), ROUND_MODES):
+        for sign, (lsb_zero, gs), rm in itertools.product((0, 1), _LGS_CONFIGS, ROUND_MODES):
             target_max_norm_exp = _unbiased_max(target_E, target_bias)
             exp = target_max_norm_exp
             mantissa_diff = M - target_M
 
-            if offset > 0:
-                mantissa = offset << (mantissa_diff - 2)
-                exp += 1
-            else:
-                mantissa = (((1 << target_M) - 1) << mantissa_diff) | -offset << (mantissa_diff - 2)
+            lsb_one = not lsb_zero
+            mantissa = ((((1 << target_M - 1) - 1) << 1 | lsb_one) << mantissa_diff) | gs << (mantissa_diff - 2)
 
             a = _fp_hex(sign, exp + bias, mantissa, E, M)
 
-            _emit_convert(const.OP_CFF, rm, a, fmt, target, test_f, cover_f)
+            _emit_convert(const.OP_CFF, rm, a, fmt, target, test_f, cover_f, config)
 
 
-def _group2_converts(fmt: str, E: int, M: int, bias: int, test_f: TextIO, cover_f: TextIO) -> None:
+def _group2_converts(fmt: str, E: int, M: int, bias: int, test_f: TextIO, cover_f: TextIO, config: Config) -> None:
     # A Random Number Larger than MaxNorm + 3 ulp
 
     for target in const.FLOAT_FMTS:
         target_E, target_M, target_bias = _fmt_params(target)
 
-        if target_E > E or (fmt == target) or (fmt == const.FMT_BF16 and target == const.FMT_SINGLE):
+        if target_E >= E or (fmt == target) or (fmt == const.FMT_BF16 and target == const.FMT_SINGLE):
             # Then the conversion is widening
             continue
 
@@ -739,10 +756,10 @@ def _group2_converts(fmt: str, E: int, M: int, bias: int, test_f: TextIO, cover_
 
             a = _fp_hex(sign, exp + bias, mantissa, E, M)
 
-            _emit_convert(const.OP_CFF, rm, a, fmt, target, test_f, cover_f)
+            _emit_convert(const.OP_CFF, rm, a, fmt, target, test_f, cover_f, config)
 
 
-def _group3_converts(fmt: str, E: int, M: int, bias: int, test_f: TextIO, cover_f: TextIO) -> None:
+def _group3_converts(fmt: str, E: int, M: int, bias: int, test_f: TextIO, cover_f: TextIO, config: Config) -> None:
     # Numbers with exponent in the range MaxNorm.Exp +- 3
 
     for target in const.FLOAT_FMTS:
@@ -756,11 +773,15 @@ def _group3_converts(fmt: str, E: int, M: int, bias: int, test_f: TextIO, cover_
             target_max_norm_exp = _unbiased_max(target_E, target_bias)
             exp = target_max_norm_exp + offset
 
+            # if the target_max_norm_exp is less than max norm
+            if target_max_norm_exp > const.UNBIASED_EXP[fmt][1]:
+                continue
+
             mantissa = random.getrandbits(M)
 
             a = _fp_hex(sign, exp + bias, mantissa, E, M)
 
-            _emit_convert(const.OP_CFF, rm, a, fmt, target, test_f, cover_f)
+            _emit_convert(const.OP_CFF, rm, a, fmt, target, test_f, cover_f, config)
 
 
 # ---------------------------------------------------------------------------
@@ -768,25 +789,25 @@ def _group3_converts(fmt: str, E: int, M: int, bias: int, test_f: TextIO, cover_
 # ---------------------------------------------------------------------------
 
 
-def generate_b4_tests_arithmetic(test_f: TextIO, cover_f: TextIO, fmt: str) -> None:
+def generate_b4_tests_arithmetic(test_f: TextIO, cover_f: TextIO, config: Config, fmt: str) -> None:
     E, M, bias = _fmt_params(fmt)
-    _group1a_tk(fmt, E, M, bias, test_f, cover_f)
-    _group1b_arithmetic(fmt, E, M, bias, test_f, cover_f)
-    _group1b_mul_div(fmt, E, M, bias, test_f, cover_f)
-    _group2_clear_overflow(fmt, E, M, bias, test_f, cover_f)
-    _group3_exp_sweep(fmt, E, M, bias, test_f, cover_f)
+    _group1a_tk(fmt, E, M, bias, test_f, cover_f, config)
+    _group1b_arithmetic(fmt, E, M, bias, test_f, cover_f, config)
+    _group1b_mul_div(fmt, E, M, bias, test_f, cover_f, config)
+    _group2_clear_overflow(fmt, E, M, bias, test_f, cover_f, config)
+    _group3_exp_sweep(fmt, E, M, bias, test_f, cover_f, config)
 
 
-def generate_b4_tests_converts(test_f: TextIO, cover_f: TextIO, fmt: str) -> None:
+def generate_b4_tests_converts(test_f: TextIO, cover_f: TextIO, config: Config, fmt: str) -> None:
     E, M, bias = _fmt_params(fmt)
-    _group1_converts(fmt, E, M, bias, test_f, cover_f)
-    _group2_converts(fmt, E, M, bias, test_f, cover_f)
-    _group3_converts(fmt, E, M, bias, test_f, cover_f)
+    _group1_converts(fmt, E, M, bias, test_f, cover_f, config)
+    _group2_converts(fmt, E, M, bias, test_f, cover_f, config)
+    _group3_converts(fmt, E, M, bias, test_f, cover_f, config)
 
 
 @register_model("B4")
-def main(test_f: TextIO, cover_f: TextIO) -> None:
+def main(config: Config, test_f: TextIO, cover_f: TextIO) -> None:
     for fmt in const.FLOAT_FMTS:
         random.seed(reproducible_hash(f"B4 {fmt}"))
-        generate_b4_tests_arithmetic(test_f, cover_f, fmt)
-        generate_b4_tests_converts(test_f, cover_f, fmt)
+        generate_b4_tests_arithmetic(test_f, cover_f, config, fmt)
+        generate_b4_tests_converts(test_f, cover_f, config, fmt)

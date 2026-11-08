@@ -13,9 +13,7 @@
 # either express or implied. See the License for the specific language governing permissions
 # and limitations under the License.
 
-# Commonly Use Constants
-
-from dataclasses import dataclass
+# Commonly Used Constants
 
 # Operation codes for test vectors
 
@@ -111,10 +109,11 @@ ROUNDING_MODES = [ROUND_NEAR_EVEN, ROUND_MINMAG, ROUND_MIN, ROUND_MAX, ROUND_NEA
 
 # Defining floating point format constants
 
-MANTISSA_BITS = {FMT_HALF: 10, FMT_SINGLE: 23, FMT_DOUBLE: 52, FMT_QUAD: 112, FMT_BF16: 7}
-
 EXPONENT_BIAS = {FMT_HALF: 15, FMT_SINGLE: 127, FMT_DOUBLE: 1023, FMT_QUAD: 16383, FMT_BF16: 127}
 
+# ROUNDING_MODES = {ROUND_NEAR_EVEN, ROUND_MINMAG, ROUND_MIN, ROUND_MAX, ROUND_NEAR_MAXMAG, ROUND_ODD}
+
+MANTISSA_BITS = {FMT_HALF: 10, FMT_SINGLE: 23, FMT_DOUBLE: 52, FMT_QUAD: 112, FMT_BF16: 7}
 
 EXPONENT_BITS = {FMT_HALF: 5, FMT_SINGLE: 8, FMT_DOUBLE: 11, FMT_QUAD: 15, FMT_BF16: 8}
 
@@ -136,6 +135,14 @@ BIASED_EXP = {  # Range of biased exponents based on precision
     FMT_BF16: [1, 254],
 }
 
+SIGN_BIT = {
+    FMT_HALF: 15,
+    FMT_BF16: 15,
+    FMT_SINGLE: 31,
+    FMT_DOUBLE: 63,
+    FMT_QUAD: 127,
+}
+
 # Test vector widths
 
 TEST_VECTOR_WIDTH_HEX = 144
@@ -144,14 +151,3 @@ COVER_VECTOR_WIDTH_HEX = 302
 COVER_VECTOR_WIDTH_HEX_WITH_SEPARATORS = COVER_VECTOR_WIDTH_HEX + 12
 INTER_SIGNIFICAND_LENGTH = (3 * 112) + 4
 RFI_DECIMAL_POINT = INTER_SIGNIFICAND_LENGTH // 2
-
-
-@dataclass
-class Config:
-    FULL_COVERAGE_TESTGEN: bool = True
-    CACHE_DIR: str = "build/cache"
-    QUIET: bool = False
-    RELEASE: bool = False
-
-
-config = Config()
